@@ -1,0 +1,15 @@
+telegram-pdf-bot/
+├── app.py
+├── config.py
+├── database.py
+├── utils.py
+├── handlers/
+│   ├── __init__.py
+│   ├── channel.py
+│   ├── commands.py
+│   ├── callbacks.py
+│   └── messages.py
+├── requirements.txt
+├── Procfile (for Render)
+├── README.md
+└── .env (example)
