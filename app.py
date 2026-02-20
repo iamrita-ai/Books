@@ -38,9 +38,9 @@ def run_polling():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Build application with updater (for polling)
+        # Build application WITHOUT updater first
         logger.info("Building application...")
-        bot_app = Application.builder().token(BOT_TOKEN).build()
+        bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
         
         # Add all handlers
         logger.info("Adding handlers...")
@@ -51,10 +51,37 @@ def run_polling():
         bot_app.add_handler(group_message_handler_obj)
         bot_app.add_handler(callback_handler)
         
-        logger.info("🚀 Starting polling...")
-        polling_active = True
-        bot_app.run_polling()
+        # Initialize and start
+        logger.info("Initializing application...")
+        loop.run_until_complete(bot_app.initialize())
+        loop.run_until_complete(bot_app.start())
         
+        # Start polling manually
+        logger.info("🚀 Starting polling manually...")
+        polling_active = True
+        
+        # Create and start the updater separately
+        from telegram.ext import Updater
+        updater = Updater(bot=bot_app.bot, update_queue=asyncio.Queue())
+        
+        # Start polling in a separate thread
+        import threading as t
+        def poll():
+            try:
+                updater.start_polling()
+                updater.idle()
+            except Exception as e:
+                logger.exception(f"Polling error: {e}")
+        
+        poll_thread = t.Thread(target=poll, daemon=True, name="PollWorker")
+        poll_thread.start()
+        
+        # Keep the main bot thread alive
+        while polling_active:
+            import time
+            time.sleep(10)
+            logger.debug("Bot thread heartbeat")
+            
     except Exception as e:
         logger.exception(f"❌ Fatal error in polling thread: {e}")
         polling_active = False
@@ -68,7 +95,7 @@ def start_polling():
     polling_thread.start()
     logger.info(f"Polling thread started with ID: {polling_thread.ident}")
 
-# ⚠️ IMPORTANT: Start polling at module level, not inside __main__
+# Start polling at module level
 logger.info("🔄 Initializing bot...")
 start_polling()
 
@@ -100,7 +127,6 @@ def debug():
 def index():
     return "📚 Telegram PDF Library Bot is running with polling."
 
-# This block still runs when executed directly (for local testing)
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     logger.info(f"Starting Flask on port {port}")
