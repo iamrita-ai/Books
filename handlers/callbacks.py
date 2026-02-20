@@ -1,10 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackQueryHandler, ContextTypes
-from database import get_file_by_id, search_files
+from database import get_file_by_id
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE
-import logging
-
-logger = logging.getLogger(__name__)
+from utils import format_size
 
 async def button_callback(update: Update, context):
     query = update.callback_query
@@ -71,5 +69,4 @@ async def send_results_page(query, context, page):
         reply_markup=reply_markup
     )
 
-# Handler
 callback_handler = CallbackQueryHandler(button_callback)
