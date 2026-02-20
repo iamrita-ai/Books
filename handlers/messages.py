@@ -2,28 +2,24 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import filters, MessageHandler, ContextTypes
 from database import search_files, update_user, is_bot_locked
 from utils import random_reaction, format_size, check_subscription, log_to_channel
-from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL
+from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 
 logger = logging.getLogger(__name__)
 
 async def group_message_handler(update: Update, context):
-    # 1. React with random emoji
     try:
         await update.message.react(random_reaction())
     except Exception:
         pass
 
-    # 2. Check if bot is locked
-    if is_bot_locked():
-        # Only owner can use when locked; but we can still allow maybe? We'll just ignore.
-        return
-
     user = update.effective_user
-    # 3. Update user in DB
     update_user(user.id, user.first_name, user.username)
 
-    # 4. Force subscribe check
+    # Lock check: allow only owner if locked
+    if is_bot_locked() and user.id != OWNER_ID:
+        return
+
     if not await check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         await update.message.reply_text(
@@ -32,7 +28,6 @@ async def group_message_handler(update: Update, context):
         )
         return
 
-    # 5. Search query
     query = update.message.text.strip()
     if not query:
         return
@@ -43,7 +38,6 @@ async def group_message_handler(update: Update, context):
         await log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
         return
 
-    # 6. Paginate results
     total = len(results)
     pages = (total + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
     context.user_data['search_results'] = results
@@ -63,7 +57,6 @@ async def send_results_page(update, context, page):
         btn_text = f"{res['original_filename']} ({format_size(res['file_size'])})"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
 
-    # Pagination buttons
     nav_buttons = []
     if page > 0:
         nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
@@ -72,7 +65,6 @@ async def send_results_page(update, context, page):
     if nav_buttons:
         keyboard.append(nav_buttons)
 
-    # Info buttons (always present)
     info_row = [
         InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"),
         InlineKeyboardButton("📢 Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}"),
@@ -86,7 +78,6 @@ async def send_results_page(update, context, page):
         reply_markup=reply_markup
     )
 
-# Handler instance
 group_message_handler_obj = MessageHandler(
     filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS,
     group_message_handler
