@@ -28,32 +28,36 @@ commands.BOT_START_TIME = datetime.now()
 
 def start_bot():
     global bot_app, loop
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    # Build application without updater (webhook mode)
-    bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
+        # Build application without updater (webhook mode)
+        bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
 
-    # Add handlers
-    bot_app.add_handler(channel_handler)
-    for handler in get_command_handlers():
-        bot_app.add_handler(handler)
-    bot_app.add_handler(group_message_handler_obj)
-    bot_app.add_handler(callback_handler)
+        # Add handlers
+        bot_app.add_handler(channel_handler)
+        for handler in get_command_handlers():
+            bot_app.add_handler(handler)
+        bot_app.add_handler(group_message_handler_obj)
+        bot_app.add_handler(callback_handler)
 
-    # Initialize and start the bot
-    loop.run_until_complete(bot_app.initialize())
-    loop.run_until_complete(bot_app.start())
+        # Initialize and start the bot
+        loop.run_until_complete(bot_app.initialize())
+        loop.run_until_complete(bot_app.start())
 
-    # Set webhook
-    async def set_webhook():
-        await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-        logger.info(f"Webhook set to {WEBHOOK_URL}")
-    loop.run_until_complete(set_webhook())
+        # Set webhook
+        async def set_webhook():
+            await bot_app.bot.set_webhook(url=WEBHOOK_URL)
+            logger.info(f"Webhook set to {WEBHOOK_URL}")
+        loop.run_until_complete(set_webhook())
 
-    # Signal that the bot is ready
-    bot_ready.set()
-    logger.info("Bot started in background thread")
+        # Signal that the bot is ready
+        bot_ready.set()
+        logger.info("Bot started in background thread - event set")
+    except Exception as e:
+        logger.exception(f"Fatal error in start_bot: {e}")
+        return  # Thread will exit, but we can't recover
 
     # Keep the event loop running forever
     loop.run_forever()
@@ -64,6 +68,8 @@ thread.start()
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    # Log current event state
+    logger.debug(f"Webhook received, event is_set: {bot_ready.is_set()}")
     # Wait for bot to be ready (max 10 seconds)
     if not bot_ready.wait(timeout=10):
         logger.error("Bot not ready within timeout")
