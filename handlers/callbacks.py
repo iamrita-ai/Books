@@ -32,7 +32,8 @@ async def button_callback(update: Update, context):
             "📚 *PDF Library Bot*\n"
             f"Owner: [Click here](tg://user?id={OWNER_ID})\n"
             f"Channel: {FORCE_SUB_CHANNEL}\n"
-            "Send any part of a book name to search."
+            "Send any part of a book name to search.\n\n"
+            "⚠️ **No copyrighted or illegal content** – only self-improvement and public domain books."
         )
         await query.edit_message_text(text, parse_mode='Markdown')
 
