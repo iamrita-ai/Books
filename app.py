@@ -1,19 +1,17 @@
-import asyncio
 import logging
-import threading
-from flask import Flask, jsonify
-from telegram.ext import Application
-from config import BOT_TOKEN
-from database import init_db
-from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
-import handlers.commands as commands
-from datetime import datetime
+import multiprocessing
+import time
 import os
 import sys
+from flask import Flask, jsonify
+from config import BOT_TOKEN
+from database import init_db
+import handlers.commands as commands
+from datetime import datetime
 
 # Force flush logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     stream=sys.stdout
 )
@@ -25,107 +23,88 @@ app = Flask(__name__)
 init_db()
 commands.BOT_START_TIME = datetime.now()
 
-bot_app = None
-polling_thread = None
-polling_active = False
+# Global variable to track bot process
+bot_process = None
+bot_process_start_time = None
 
-def run_polling():
-    """Run the bot with polling in a background thread."""
-    global bot_app, polling_active
-    logger.info("🚀 Polling thread started")
+def run_bot_process():
+    """Run the bot in a separate process using python-telegram-bot's built-in polling."""
+    import asyncio
+    from telegram.ext import Application
+    from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
+    
+    logger.info("🚀 Bot process started")
     
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Create application with default settings (works with polling)
+        application = Application.builder().token(BOT_TOKEN).build()
         
-        # Build application WITHOUT updater first
-        logger.info("Building application...")
-        bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
-        
-        # Add all handlers
-        logger.info("Adding handlers...")
-        bot_app.add_handler(channel_handler)
+        # Add handlers
+        application.add_handler(channel_handler)
         for handler in get_command_handlers():
-            bot_app.add_handler(handler)
-            logger.debug(f"Added handler: {handler}")
-        bot_app.add_handler(group_message_handler_obj)
-        bot_app.add_handler(callback_handler)
+            application.add_handler(handler)
+        application.add_handler(group_message_handler_obj)
+        application.add_handler(callback_handler)
         
-        # Initialize and start
-        logger.info("Initializing application...")
-        loop.run_until_complete(bot_app.initialize())
-        loop.run_until_complete(bot_app.start())
+        # Start polling (this blocks)
+        logger.info("Starting polling...")
+        application.run_polling()
         
-        # Start polling manually
-        logger.info("🚀 Starting polling manually...")
-        polling_active = True
-        
-        # Create and start the updater separately
-        from telegram.ext import Updater
-        updater = Updater(bot=bot_app.bot, update_queue=asyncio.Queue())
-        
-        # Start polling in a separate thread
-        import threading as t
-        def poll():
-            try:
-                updater.start_polling()
-                updater.idle()
-            except Exception as e:
-                logger.exception(f"Polling error: {e}")
-        
-        poll_thread = t.Thread(target=poll, daemon=True, name="PollWorker")
-        poll_thread.start()
-        
-        # Keep the main bot thread alive
-        while polling_active:
-            import time
-            time.sleep(10)
-            logger.debug("Bot thread heartbeat")
-            
     except Exception as e:
-        logger.exception(f"❌ Fatal error in polling thread: {e}")
-        polling_active = False
+        logger.exception(f"❌ Fatal error in bot process: {e}")
     finally:
-        logger.info("🛑 Polling thread stopped")
+        logger.info("🛑 Bot process stopped")
 
-def start_polling():
-    """Start polling in a background thread."""
-    global polling_thread
-    polling_thread = threading.Thread(target=run_polling, daemon=True, name="PollingThread")
-    polling_thread.start()
-    logger.info(f"Polling thread started with ID: {polling_thread.ident}")
+def start_bot():
+    """Start the bot in a separate process."""
+    global bot_process, bot_process_start_time
+    if bot_process and bot_process.is_alive():
+        logger.info("Bot process already running")
+        return
+    
+    bot_process = multiprocessing.Process(target=run_bot_process, name="BotProcess")
+    bot_process.daemon = True  # This will be ignored, but we keep it
+    bot_process.start()
+    bot_process_start_time = time.time()
+    logger.info(f"Bot process started with PID: {bot_process.pid}")
 
-# Start polling at module level
+# Start the bot process immediately
 logger.info("🔄 Initializing bot...")
-start_polling()
+start_bot()
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
-    thread_alive = polling_thread.is_alive() if polling_thread else False
+    global bot_process
+    
+    # Check if process is alive, restart if dead
+    if bot_process and not bot_process.is_alive():
+        logger.warning("Bot process died, restarting...")
+        start_bot()
+    
+    process_alive = bot_process.is_alive() if bot_process else False
+    uptime = time.time() - bot_process_start_time if bot_process_start_time and process_alive else 0
+    
     return jsonify({
         "status": "healthy",
-        "polling_alive": thread_alive,
-        "polling_active": polling_active,
-        "bot_app_initialized": bot_app is not None
+        "bot_process_alive": process_alive,
+        "bot_process_pid": bot_process.pid if bot_process else None,
+        "bot_uptime_seconds": uptime
     }), 200
 
 @app.route('/debug', methods=['GET'])
 def debug():
-    """Debug endpoint to check thread status."""
-    thread_status = {
-        "polling_thread_alive": polling_thread.is_alive() if polling_thread else False,
-        "polling_thread_name": polling_thread.name if polling_thread else None,
-        "polling_active": polling_active,
-        "bot_app": str(bot_app) if bot_app else None,
-        "total_threads": threading.active_count(),
-        "threads": [t.name for t in threading.enumerate()]
-    }
-    return jsonify(thread_status), 200
+    """Debug endpoint."""
+    global bot_process
+    return jsonify({
+        "bot_process_alive": bot_process.is_alive() if bot_process else False,
+        "bot_process_pid": bot_process.pid if bot_process else None,
+        "bot_process_start_time": bot_process_start_time
+    }), 200
 
 @app.route('/', methods=['GET'])
 def index():
-    return "📚 Telegram PDF Library Bot is running with polling."
+    return "📚 Telegram PDF Library Bot is running with polling (multiprocessing)."
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
