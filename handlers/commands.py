@@ -1,0 +1,169 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CommandHandler, ContextTypes, filters
+from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, SOURCE_CHANNEL
+from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
+                      set_bot_locked, get_all_users)
+from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel
+import os
+import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Store bot start time globally (set in app.py)
+BOT_START_TIME = None
+
+# ---------- Helper to enforce force-sub ----------
+async def _check_and_send_force_sub(update: Update, context) -> bool:
+    user = update.effective_user
+    if not user:
+        return False
+    if not await check_subscription(user.id, context.bot):
+        keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
+        await update.message.reply_text(
+            "⚠️ You must join our channel to use this bot.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return False
+    return True
+
+# ---------- Decorator for admin-only commands ----------
+def owner_only(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.effective_user.id
+        if user_id != OWNER_ID:
+            await update.message.reply_text("⛔ You are not authorized to use this command.")
+            return
+        return await func(update, context, *args, **kwargs)
+    return wrapper
+
+# ---------- Public Commands ----------
+async def start(update: Update, context):
+    if not await _check_and_send_force_sub(update, context):
+        return
+    await update.message.reply_text(
+        f"👋 Hello! I'm {BOT_NAME}, a PDF library bot.\n"
+        "Send any part of a book name and I'll search my library."
+    )
+
+async def help_command(update: Update, context):
+    if not await _check_and_send_force_sub(update, context):
+        return
+    text = (
+        "📚 *How to use:*\n"
+        "• Type any part of a book title to search.\n"
+        "• Click on a result to get the PDF.\n"
+        "• Commands:\n"
+        "/start - Welcome message\n"
+        "/help - This help\n"
+        "/stats - Bot statistics\n"
+    )
+    await update.message.reply_text(text, parse_mode='Markdown')
+
+async def stats(update: Update, context):
+    if not await _check_and_send_force_sub(update, context):
+        return
+    total_files = get_total_files()
+    total_users = get_total_users()
+    db_size = get_db_size() / 1024  # KB
+    uptime = get_uptime(BOT_START_TIME)
+    mem = get_memory_usage()
+    disk = get_disk_usage()
+    locked = "🔒 Locked" if is_bot_locked() else "🔓 Unlocked"
+
+    text = (
+        f"📊 *Bot Statistics*\n"
+        f"• Uptime: {uptime}\n"
+        f"• Total PDFs: {total_files}\n"
+        f"• Total Users: {total_users}\n"
+        f"• Database size: {db_size:.2f} KB\n"
+        f"• Status: {locked}\n"
+    )
+    if mem:
+        text += f"• Memory: {mem:.2f} MB\n"
+    if disk:
+        text += f"• Disk used: {disk:.2f} MB\n"
+
+    await update.message.reply_text(text, parse_mode='Markdown')
+
+# ---------- Admin Commands ----------
+@owner_only
+async def users(update: Update, context):
+    count = get_total_users()
+    await update.message.reply_text(f"👥 Total users: {count}")
+
+@owner_only
+async def broadcast(update: Update, context):
+    # Usage: /broadcast <message>
+    if not context.args:
+        await update.message.reply_text("Usage: /broadcast <message>")
+        return
+    message = ' '.join(context.args)
+    users = get_all_users()
+    success = 0
+    for uid in users:
+        try:
+            await context.bot.send_message(uid, message)
+            success += 1
+        except Exception:
+            pass
+    await update.message.reply_text(f"📢 Broadcast sent to {success}/{len(users)} users.")
+    await log_to_channel(context.bot, f"Broadcast sent by owner: {message[:50]}...")
+
+@owner_only
+async def lock(update: Update, context):
+    set_bot_locked(True)
+    await update.message.reply_text("🔒 Bot is now locked. Only admins can use commands.")
+    await log_to_channel(context.bot, "Bot locked by owner.")
+
+@owner_only
+async def unlock(update: Update, context):
+    set_bot_locked(False)
+    await update.message.reply_text("🔓 Bot is now unlocked for everyone.")
+    await log_to_channel(context.bot, "Bot unlocked by owner.")
+
+@owner_only
+async def import_db(update: Update, context):
+    # Placeholder – you can implement DB import via file upload
+    await update.message.reply_text("Import not implemented in this version.")
+
+@owner_only
+async def export_db(update: Update, context):
+    # Send the SQLite file as a document
+    await update.message.reply_document(document=open('bot_data.db', 'rb'))
+
+@owner_only
+async def delete_db(update: Update, context):
+    # Dangerous: drop all tables
+    await update.message.reply_text("⚠️ This will delete all data. Type /confirm_delete to proceed.")
+    context.user_data['confirm_delete'] = True
+
+@owner_only
+async def confirm_delete(update: Update, context):
+    if context.user_data.get('confirm_delete'):
+        from database import get_db
+        with get_db() as conn:
+            conn.execute("DROP TABLE IF EXISTS files")
+            conn.execute("DROP TABLE IF EXISTS users")
+            conn.execute("DROP TABLE IF EXISTS settings")
+        init_db()  # re-create empty tables
+        await update.message.reply_text("✅ Database cleared.")
+        await log_to_channel(context.bot, "Database deleted by owner.")
+    else:
+        await update.message.reply_text("No pending delete request.")
+
+# ---------- Register handlers ----------
+def get_handlers():
+    return [
+        CommandHandler("start", start, filters=filters.ChatType.GROUPS),
+        CommandHandler("help", help_command, filters=filters.ChatType.GROUPS),
+        CommandHandler("stats", stats, filters=filters.ChatType.GROUPS),
+        CommandHandler("users", users, filters=filters.ChatType.GROUPS),
+        CommandHandler("broadcast", broadcast, filters=filters.ChatType.GROUPS),
+        CommandHandler("lock", lock, filters=filters.ChatType.GROUPS),
+        CommandHandler("unlock", unlock, filters=filters.ChatType.GROUPS),
+        CommandHandler("import", import_db, filters=filters.ChatType.GROUPS),
+        CommandHandler("export", export_db, filters=filters.ChatType.GROUPS),
+        CommandHandler("delete_db", delete_db, filters=filters.ChatType.GROUPS),
+        CommandHandler("confirm_delete", confirm_delete, filters=filters.ChatType.GROUPS),
+    ]
