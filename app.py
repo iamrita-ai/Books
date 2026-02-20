@@ -25,19 +25,27 @@ if not BOT_TOKEN:
 # Global variables
 bot_app = None
 bot_ready = threading.Event()  # Signal when bot is fully initialized
+bot_thread = None
 
-# Simple message handler
+# Simple message handler (will be replaced by your full handlers later)
 async def echo_handler(update: Update, context):
     """Echo the user's message back"""
     if update.message and update.message.text:
         await update.message.reply_text(f"You said: {update.message.text}")
         logger.info(f"Echoed: {update.message.text}")
 
+def bot_heartbeat():
+    """Periodic heartbeat to show bot thread is alive"""
+    while True:
+        time.sleep(60)
+        logger.info("💓 Bot thread heartbeat - still alive")
+
 def start_bot():
     """Initialize bot in background thread"""
     global bot_app
+    thread_id = threading.current_thread().ident
+    logger.info(f"🚀 Starting bot initialization in thread {thread_id}...")
     
-    logger.info("🚀 Starting bot initialization...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
@@ -57,24 +65,38 @@ def start_bot():
         
         # Signal that bot is ready
         bot_ready.set()
-        logger.info("✅ Bot is fully initialized and ready!")
+        logger.info(f"✅ Bot is fully initialized and ready! (thread {thread_id})")
         
-        # Keep loop running
+        # Start heartbeat in a separate daemon thread within the bot thread
+        heartbeat_thread = threading.Thread(target=bot_heartbeat, daemon=True)
+        heartbeat_thread.start()
+        
+        # Keep loop running forever
         loop.run_forever()
     except Exception as e:
         logger.exception(f"❌ Fatal error in bot thread: {e}")
+    finally:
+        logger.info("🛑 Bot thread is exiting.")
+        # If loop was running, close it
+        if loop.is_running():
+            loop.stop()
+        loop.close()
 
 # Start bot in background
-threading.Thread(target=start_bot, daemon=True).start()
+bot_thread = threading.Thread(target=start_bot, daemon=True)
+bot_thread.start()
 
 def handle_webhook():
     """Process incoming webhook POST requests"""
     logger.info("📨 Webhook POST received")
     
-    # Wait for bot to be ready (max 30 seconds)
-    if not bot_ready.wait(timeout=30):
-        logger.error("⏰ Timeout waiting for bot to initialize")
-        return "Bot initialization timeout", 503
+    # Log event state before waiting
+    logger.debug(f"bot_ready.is_set() = {bot_ready.is_set()}")
+    
+    # Wait a short time for bot to be ready (1 second, fail fast)
+    if not bot_ready.wait(timeout=1):
+        logger.error("⏰ Bot not ready within 1 second")
+        return "Bot not ready", 503
     
     if not bot_app:
         logger.error("❌ Bot app is None despite ready event")
@@ -111,10 +133,11 @@ def health():
     return jsonify({
         "status": "healthy",
         "bot_ready": bot_ready.is_set(),
-        "pending_updates": 0
+        "bot_thread_alive": bot_thread.is_alive() if bot_thread else False
     }), 200
 
 @app.route('/', methods=['GET'])
 def index():
     ready_status = "✅ Bot is ready!" if bot_ready.is_set() else "⏳ Bot is initializing..."
-    return f"🚀 Telegram Bot is running!<br>{ready_status}"
+    thread_status = f"Bot thread alive: {bot_thread.is_alive() if bot_thread else False}"
+    return f"🚀 Telegram Bot is running!<br>{ready_status}<br>{thread_status}"
