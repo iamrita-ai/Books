@@ -1,18 +1,38 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import filters, MessageHandler, ContextTypes
 from database import search_files, update_user, is_bot_locked
 from utils import random_reaction, format_size, check_subscription, log_to_channel
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 
+# Try to import ReactionTypeEmoji; fallback to private module or disable reactions
+try:
+    from telegram import ReactionTypeEmoji
+    REACTION_SUPPORTED = True
+except ImportError:
+    try:
+        from telegram._reaction import ReactionTypeEmoji
+        REACTION_SUPPORTED = True
+    except ImportError:
+        REACTION_SUPPORTED = False
+        # Dummy class to avoid NameError
+        class ReactionTypeEmoji:
+            def __init__(self, emoji):
+                self.emoji = emoji
+
 logger = logging.getLogger(__name__)
 
 async def group_message_handler(update: Update, context):
-    try:
-        emoji = random_reaction()
-        await update.message.react([ReactionTypeEmoji(emoji=emoji)])
-    except Exception as e:
-        logger.debug(f"Reaction failed: {e}")
+    # Reaction on every message (if supported)
+    if REACTION_SUPPORTED:
+        try:
+            emoji = random_reaction()
+            await update.message.react([ReactionTypeEmoji(emoji=emoji)])
+        except Exception as e:
+            logger.debug(f"Reaction failed: {e}")
+    else:
+        # Optional: log that reactions are not supported
+        pass
 
     user = update.effective_user
     if not user:
