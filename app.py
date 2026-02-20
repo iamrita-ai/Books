@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import time
 from flask import Flask, jsonify
 from telegram.ext import Application
 from config import BOT_TOKEN
@@ -9,10 +10,13 @@ from handlers import channel_handler, get_command_handlers, group_message_handle
 import handlers.commands as commands
 from datetime import datetime
 import os
+import sys
 
+# Force flush logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
 
@@ -24,43 +28,80 @@ commands.BOT_START_TIME = datetime.now()
 
 bot_app = None
 polling_thread = None
+polling_active = False
 
 def run_polling():
     """Run the bot with polling in a background thread."""
-    global bot_app
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    global bot_app, polling_active
+    logger.info("🚀 Polling thread started")
     
-    # Build application with updater (for polling)
-    bot_app = Application.builder().token(BOT_TOKEN).build()
-    
-    # Add all handlers
-    bot_app.add_handler(channel_handler)
-    for handler in get_command_handlers():
-        bot_app.add_handler(handler)
-    bot_app.add_handler(group_message_handler_obj)
-    bot_app.add_handler(callback_handler)
-    
-    logger.info("🚀 Starting polling...")
-    bot_app.run_polling()
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Build application with updater (for polling)
+        logger.info("Building application...")
+        bot_app = Application.builder().token(BOT_TOKEN).build()
+        
+        # Add all handlers
+        logger.info("Adding handlers...")
+        bot_app.add_handler(channel_handler)
+        for handler in get_command_handlers():
+            bot_app.add_handler(handler)
+            logger.debug(f"Added handler: {handler}")
+        bot_app.add_handler(group_message_handler_obj)
+        bot_app.add_handler(callback_handler)
+        
+        logger.info("🚀 Starting polling...")
+        polling_active = True
+        bot_app.run_polling()
+        
+    except Exception as e:
+        logger.exception(f"❌ Fatal error in polling thread: {e}")
+        polling_active = False
+    finally:
+        logger.info("🛑 Polling thread stopped")
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
+    thread_alive = polling_thread.is_alive() if polling_thread else False
     return jsonify({
         "status": "healthy",
-        "polling_alive": polling_thread.is_alive() if polling_thread else False
+        "polling_alive": thread_alive,
+        "polling_active": polling_active,
+        "bot_app_initialized": bot_app is not None
     }), 200
+
+@app.route('/debug', methods=['GET'])
+def debug():
+    """Debug endpoint to check thread status."""
+    thread_status = {
+        "polling_thread_alive": polling_thread.is_alive() if polling_thread else False,
+        "polling_thread_name": polling_thread.name if polling_thread else None,
+        "polling_active": polling_active,
+        "bot_app": str(bot_app) if bot_app else None,
+        "total_threads": threading.active_count(),
+        "threads": [t.name for t in threading.enumerate()]
+    }
+    return jsonify(thread_status), 200
 
 @app.route('/', methods=['GET'])
 def index():
     return "📚 Telegram PDF Library Bot is running with polling."
 
-if __name__ == '__main__':
-    # Start polling in a background daemon thread
-    polling_thread = threading.Thread(target=run_polling, daemon=True)
+def start_polling():
+    """Start polling in a background thread."""
+    global polling_thread
+    polling_thread = threading.Thread(target=run_polling, daemon=True, name="PollingThread")
     polling_thread.start()
+    logger.info(f"Polling thread started with ID: {polling_thread.ident}")
+
+if __name__ == '__main__':
+    # Start polling in background
+    start_polling()
     
     # Run Flask in the main thread
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    logger.info(f"Starting Flask on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
