@@ -1,17 +1,16 @@
 import logging
-import multiprocessing
+import subprocess
+import sys
 import time
 import os
-import sys
 from flask import Flask, jsonify
-from config import BOT_TOKEN
 from database import init_db
 import handlers.commands as commands
 from datetime import datetime
 
 # Force flush logging
 logging.basicConfig(
-    format='%(asime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     stream=sys.stdout
 )
@@ -23,20 +22,41 @@ app = Flask(__name__)
 init_db()
 commands.BOT_START_TIME = datetime.now()
 
-# Global variable to track bot process
+# Global variable to track bot subprocess
 bot_process = None
 bot_process_start_time = None
 
-def run_bot_process():
-    """Run the bot in a separate process using python-telegram-bot's built-in polling."""
-    import asyncio
-    from telegram.ext import Application
-    from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
+def start_bot_subprocess():
+    """Start the bot as a separate subprocess."""
+    global bot_process, bot_process_start_time
     
-    logger.info("🚀 Bot process started")
+    # Path to the bot script
+    bot_script = os.path.join(os.path.dirname(__file__), 'bot_runner.py')
+    
+    # Create the bot runner script if it doesn't exist
+    if not os.path.exists(bot_script):
+        with open(bot_script, 'w') as f:
+            f.write('''#!/usr/bin/env python3
+import asyncio
+import logging
+import sys
+from telegram.ext import Application
+from config import BOT_TOKEN
+from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+def main():
+    """Run the bot with polling."""
+    logger.info("🚀 Bot subprocess started")
     
     try:
-        # Create application with default settings (works with polling)
+        # Create application with default settings
         application = Application.builder().token(BOT_TOKEN).build()
         
         # Add handlers
@@ -51,38 +71,47 @@ def run_bot_process():
         application.run_polling()
         
     except Exception as e:
-        logger.exception(f"❌ Fatal error in bot process: {e}")
+        logger.exception(f"❌ Fatal error in bot subprocess: {e}")
     finally:
-        logger.info("🛑 Bot process stopped")
+        logger.info("🛑 Bot subprocess stopped")
 
-def start_bot():
-    """Start the bot in a separate process."""
-    global bot_process, bot_process_start_time
-    if bot_process and bot_process.is_alive():
-        logger.info("Bot process already running")
+if __name__ == '__main__':
+    main()
+''')
+        os.chmod(bot_script, 0o755)  # Make executable
+    
+    # Start the subprocess
+    if bot_process and bot_process.poll() is None:
+        logger.info("Bot subprocess already running")
         return
     
-    bot_process = multiprocessing.Process(target=run_bot_process, name="BotProcess")
-    bot_process.daemon = True  # This will be ignored, but we keep it
-    bot_process.start()
+    bot_process = subprocess.Popen(
+        [sys.executable, bot_script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        bufsize=1
+    )
     bot_process_start_time = time.time()
-    logger.info(f"Bot process started with PID: {bot_process.pid}")
+    logger.info(f"Bot subprocess started with PID: {bot_process.pid}")
 
-# Start the bot process immediately
+# Start the bot subprocess immediately
 logger.info("🔄 Initializing bot...")
-start_bot()
+start_bot_subprocess()
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
     global bot_process
     
-    # Check if process is alive, restart if dead
-    if bot_process and not bot_process.is_alive():
-        logger.warning("Bot process died, restarting...")
-        start_bot()
+    # Check if process is running, restart if dead
+    if bot_process:
+        poll = bot_process.poll()
+        if poll is not None:
+            logger.warning(f"Bot subprocess died with code {poll}, restarting...")
+            start_bot_subprocess()
     
-    process_alive = bot_process.is_alive() if bot_process else False
+    process_alive = bot_process and bot_process.poll() is None
     uptime = time.time() - bot_process_start_time if bot_process_start_time and process_alive else 0
     
     return jsonify({
@@ -95,16 +124,15 @@ def health():
 @app.route('/debug', methods=['GET'])
 def debug():
     """Debug endpoint."""
-    global bot_process
     return jsonify({
-        "bot_process_alive": bot_process.is_alive() if bot_process else False,
+        "bot_process_alive": bot_process and bot_process.poll() is None,
         "bot_process_pid": bot_process.pid if bot_process else None,
         "bot_process_start_time": bot_process_start_time
     }), 200
 
 @app.route('/', methods=['GET'])
 def index():
-    return "📚 Telegram PDF Library Bot is running with polling (multiprocessing)."
+    return "📚 Telegram PDF Library Bot is running with polling (subprocess)."
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
