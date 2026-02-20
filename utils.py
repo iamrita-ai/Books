@@ -1,13 +1,12 @@
 import re
 import random
 from datetime import datetime
-import psutil  # optional, will be used if available
+import psutil
 from config import FORCE_SUB_CHANNEL, LOG_CHANNEL
 
 def normalize_name(name: str) -> str:
-    """Lowercase, remove special characters except letters, digits, spaces."""
     name = name.lower()
-    name = re.sub(r'[^\w\s]', '', name)  # remove punctuation
+    name = re.sub(r'[^\w\s]', '', name)
     name = re.sub(r'\s+', ' ', name).strip()
     return name
 
@@ -19,7 +18,6 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} TB"
 
 def random_reaction():
-    """Return a random emoji from Telegram's supported reaction set."""
     emojis = [
         "👍", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🎉",
         "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"
@@ -27,7 +25,6 @@ def random_reaction():
     return [random.choice(emojis)]
 
 async def check_subscription(user_id, bot) -> bool:
-    """Check if user is a member of the force-sub channel."""
     if not FORCE_SUB_CHANNEL:
         return True
     try:
@@ -37,7 +34,6 @@ async def check_subscription(user_id, bot) -> bool:
         return False
 
 async def log_to_channel(bot, text: str):
-    """Send a log message to the LOG_CHANNEL."""
     try:
         await bot.send_message(chat_id=LOG_CHANNEL, text=text)
     except Exception:
@@ -51,7 +47,6 @@ def get_uptime(start_time: datetime) -> str:
     return f"{days}d {hours}h {minutes}m {seconds}s"
 
 def get_memory_usage():
-    """Return memory usage in MB if psutil available."""
     try:
         process = psutil.Process()
         return process.memory_info().rss / (1024 * 1024)
@@ -59,9 +54,8 @@ def get_memory_usage():
         return None
 
 def get_disk_usage():
-    """Return disk usage of current directory."""
     try:
         usage = psutil.disk_usage('.')
-        return usage.used / (1024 * 1024)  # MB
+        return usage.used / (1024 * 1024)
     except:
         return None
