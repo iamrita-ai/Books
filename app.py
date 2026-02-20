@@ -4,6 +4,24 @@ import time
 import os
 import sys
 from flask import Flask, jsonify
+
+# ---------- FIX: Add dummy imghdr module ----------
+import sys
+from types import ModuleType
+import warnings
+
+# Suppress the warning about imghdr being deprecated
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Create a dummy imghdr module with a simple what() function
+dummy_imghdr = ModuleType('imghdr')
+def what(file, h=None):
+    return None  # Always return None (unknown type)
+dummy_imghdr.what = what
+sys.modules['imghdr'] = dummy_imghdr
+# --------------------------------------------------
+
+# Now import telegram modules safely
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 # Configure logging
