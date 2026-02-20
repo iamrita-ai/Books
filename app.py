@@ -1,5 +1,4 @@
 import asyncio
-import threading
 import logging
 from flask import Flask, request, jsonify
 from telegram import Update
@@ -9,6 +8,7 @@ from database import init_db
 from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
 import handlers.commands as commands
 from datetime import datetime
+import threading
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,82 +18,81 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Global bot objects and ready event
-bot_app = None
-loop = None
-bot_ready = threading.Event()
-
+# Initialize database
 init_db()
 commands.BOT_START_TIME = datetime.now()
 
-def start_bot():
-    global bot_app, loop
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+# Global bot application
+bot_app = None
 
-        bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
+async def init_bot():
+    """Initialize bot application"""
+    global bot_app
+    
+    # Build application without updater
+    bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
+    
+    # Add handlers
+    bot_app.add_handler(channel_handler)
+    for handler in get_command_handlers():
+        bot_app.add_handler(handler)
+    bot_app.add_handler(group_message_handler_obj)
+    bot_app.add_handler(callback_handler)
+    
+    # Initialize
+    await bot_app.initialize()
+    await bot_app.start()
+    
+    # Set webhook
+    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
+    logger.info(f"Webhook set to {WEBHOOK_URL}")
+    
+    return bot_app
 
-        bot_app.add_handler(channel_handler)
-        for handler in get_command_handlers():
-            bot_app.add_handler(handler)
-        bot_app.add_handler(group_message_handler_obj)
-        bot_app.add_handler(callback_handler)
+def run_bot():
+    """Run bot in event loop"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(init_bot())
+    logger.info("Bot started")
+    # Keep loop running but don't block Flask
+    threading.Thread(target=loop.run_forever, daemon=True).start()
 
-        loop.run_until_complete(bot_app.initialize())
-        loop.run_until_complete(bot_app.start())
+# Start bot in background
+threading.Thread(target=run_bot, daemon=True).start()
 
-        async def set_webhook():
-            await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-            logger.info(f"Webhook set to {WEBHOOK_URL}")
-        loop.run_until_complete(set_webhook())
-
-        bot_ready.set()
-        logger.info("Bot started in background thread - event set")
-    except Exception as e:
-        logger.exception(f"Fatal error in start_bot: {e}")
-        return
-
-    loop.run_forever()
-
-thread = threading.Thread(target=start_bot, daemon=True)
-thread.start()
-
-# ✅ FIX: Explicitly allow POST methods on the webhook route
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    logger.debug(f"Webhook received, event is_set: {bot_ready.is_set()}")
+    """Handle incoming webhook updates"""
+    global bot_app
     
-    if not bot_ready.wait(timeout=10):
-        logger.error("Bot not ready within timeout")
+    if not bot_app:
+        logger.error("Bot not initialized")
         return "Bot not ready", 503
-
-    if not bot_app or not loop:
-        logger.error("bot_app or loop is None despite ready event")
-        return "Bot not ready", 503
-
+    
     try:
         data = request.get_json(force=True)
-        logger.debug(f"Received update: {data.get('update_id')}")
         update = Update.de_json(data, bot_app.bot)
-        asyncio.run_coroutine_threadsafe(bot_app.process_update(update), loop)
+        
+        # Process update synchronously in Flask thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot_app.process_update(update))
+        loop.close()
+        
         return "OK", 200
     except Exception as e:
-        logger.exception(f"Error processing webhook: {e}")
+        logger.exception(f"Error processing update: {e}")
         return "Error", 500
 
-# Health check endpoint
 @app.route('/health', methods=['GET'])
 def health():
-    status = "ready" if bot_ready.is_set() else "starting"
-    return jsonify({"status": status}), 200
+    return jsonify({"status": "healthy", "bot_ready": bot_app is not None}), 200
 
-# Root endpoint
 @app.route('/', methods=['GET'])
 def index():
     return "Telegram PDF Library Bot is running."
 
-# Add a catch-all for debugging (optional, remove in production)
-@app.route('/webhook', methods=['GET'])
-def webhook_get():
-    return "Webhook endpoint accepts POST only", 405
+# For local testing
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
