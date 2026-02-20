@@ -26,7 +26,7 @@ if not BOT_TOKEN:
 updater = None
 bot_thread = None
 
-# Simple handler functions
+# Handler functions
 def start(update, context):
     """Handle /start command."""
     update.message.reply_text(
@@ -74,12 +74,10 @@ def start_bot():
         # Start polling
         logger.info("Starting polling...")
         updater.start_polling()
-        logger.info("Bot is running!")
+        logger.info("✅ Bot is running and polling!")
         
-        # Keep thread alive
-        while True:
-            time.sleep(10)
-            logger.debug("Bot thread heartbeat")
+        # Keep thread alive (idle)
+        updater.idle()
             
     except Exception as e:
         logger.exception(f"❌ Fatal error in bot thread: {e}")
