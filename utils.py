@@ -17,12 +17,13 @@ def format_size(size_bytes: int) -> str:
         size_bytes /= 1024.0
     return f"{size_bytes:.1f} TB"
 
-def random_reaction():
+def random_reaction() -> str:
+    """Return a random emoji from Telegram's supported reaction set."""
     emojis = [
         "👍", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🎉",
         "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"
     ]
-    return [random.choice(emojis)]
+    return random.choice(emojis)
 
 async def check_subscription(user_id, bot) -> bool:
     if not FORCE_SUB_CHANNEL:
