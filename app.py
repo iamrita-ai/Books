@@ -1,14 +1,12 @@
 import logging
-import subprocess
-import sys
+import threading
 import time
 import os
+import sys
 from flask import Flask, jsonify
-from database import init_db
-import handlers.commands as commands
-from datetime import datetime
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
-# Force flush logging
+# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -18,121 +16,103 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Initialize database
-init_db()
-commands.BOT_START_TIME = datetime.now()
+# Bot token from environment
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+if not BOT_TOKEN:
+    logger.error("BOT_TOKEN not set!")
+    sys.exit(1)
 
-# Global variable to track bot subprocess
-bot_process = None
-bot_process_start_time = None
+# Global updater reference
+updater = None
+bot_thread = None
 
-def start_bot_subprocess():
-    """Start the bot as a separate subprocess."""
-    global bot_process, bot_process_start_time
-    
-    # Path to the bot script
-    bot_script = os.path.join(os.path.dirname(__file__), 'bot_runner.py')
-    
-    # Create the bot runner script if it doesn't exist
-    if not os.path.exists(bot_script):
-        with open(bot_script, 'w') as f:
-            f.write('''#!/usr/bin/env python3
-import asyncio
-import logging
-import sys
-from telegram.ext import Application
-from config import BOT_TOKEN
-from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
+# Simple handler functions
+def start(update, context):
+    """Handle /start command."""
+    update.message.reply_text(
+        "👋 Hello! I'm a PDF library bot.\n"
+        "Add me to a group and send any part of a book name to search."
+    )
+    logger.info(f"Start command from {update.effective_user.id}")
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    stream=sys.stdout
-)
-logger = logging.getLogger(__name__)
+def help_command(update, context):
+    """Handle /help command."""
+    update.message.reply_text(
+        "📚 *How to use:*\n"
+        "• In a group, type any part of a book title to search.\n"
+        "• Click on a result button to get the PDF.\n"
+        "• Commands: /start, /help"
+    )
+    logger.info(f"Help command from {update.effective_user.id}")
 
-def main():
-    """Run the bot with polling."""
-    logger.info("🚀 Bot subprocess started")
+def echo(update, context):
+    """Echo any text message (for testing)."""
+    if update.message and update.message.text:
+        update.message.reply_text(f"You said: {update.message.text}")
+        logger.info(f"Echo: {update.message.text}")
+
+def error_handler(update, context):
+    """Log errors."""
+    logger.error(f"Update {update} caused error {context.error}")
+
+def start_bot():
+    """Start the bot in a background thread."""
+    global updater
+    logger.info("🚀 Starting bot with Updater...")
     
     try:
-        # Create application with default settings
-        application = Application.builder().token(BOT_TOKEN).build()
+        # Create Updater (synchronous)
+        updater = Updater(BOT_TOKEN, use_context=True)
+        dp = updater.dispatcher
         
         # Add handlers
-        application.add_handler(channel_handler)
-        for handler in get_command_handlers():
-            application.add_handler(handler)
-        application.add_handler(group_message_handler_obj)
-        application.add_handler(callback_handler)
+        dp.add_handler(CommandHandler("start", start))
+        dp.add_handler(CommandHandler("help", help_command))
+        dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+        dp.add_error_handler(error_handler)
         
-        # Start polling (this blocks)
+        # Start polling
         logger.info("Starting polling...")
-        application.run_polling()
+        updater.start_polling()
+        logger.info("Bot is running!")
         
+        # Keep thread alive
+        while True:
+            time.sleep(10)
+            logger.debug("Bot thread heartbeat")
+            
     except Exception as e:
-        logger.exception(f"❌ Fatal error in bot subprocess: {e}")
-    finally:
-        logger.info("🛑 Bot subprocess stopped")
+        logger.exception(f"❌ Fatal error in bot thread: {e}")
 
-if __name__ == '__main__':
-    main()
-''')
-        os.chmod(bot_script, 0o755)  # Make executable
-    
-    # Start the subprocess
-    if bot_process and bot_process.poll() is None:
-        logger.info("Bot subprocess already running")
-        return
-    
-    bot_process = subprocess.Popen(
-        [sys.executable, bot_script],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        bufsize=1
-    )
-    bot_process_start_time = time.time()
-    logger.info(f"Bot subprocess started with PID: {bot_process.pid}")
-
-# Start the bot subprocess immediately
-logger.info("🔄 Initializing bot...")
-start_bot_subprocess()
+# Start bot in background thread
+bot_thread = threading.Thread(target=start_bot, daemon=True, name="BotThread")
+bot_thread.start()
+logger.info(f"Bot thread started: {bot_thread.ident}")
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
-    global bot_process
-    
-    # Check if process is running, restart if dead
-    if bot_process:
-        poll = bot_process.poll()
-        if poll is not None:
-            logger.warning(f"Bot subprocess died with code {poll}, restarting...")
-            start_bot_subprocess()
-    
-    process_alive = bot_process and bot_process.poll() is None
-    uptime = time.time() - bot_process_start_time if bot_process_start_time and process_alive else 0
-    
+    thread_alive = bot_thread.is_alive() if bot_thread else False
     return jsonify({
         "status": "healthy",
-        "bot_process_alive": process_alive,
-        "bot_process_pid": bot_process.pid if bot_process else None,
-        "bot_uptime_seconds": uptime
+        "bot_thread_alive": thread_alive,
+        "updater_running": updater is not None
     }), 200
 
 @app.route('/debug', methods=['GET'])
 def debug():
     """Debug endpoint."""
     return jsonify({
-        "bot_process_alive": bot_process and bot_process.poll() is None,
-        "bot_process_pid": bot_process.pid if bot_process else None,
-        "bot_process_start_time": bot_process_start_time
+        "bot_thread_alive": bot_thread.is_alive() if bot_thread else False,
+        "bot_thread_name": bot_thread.name if bot_thread else None,
+        "updater": str(updater) if updater else None,
+        "total_threads": threading.active_count(),
+        "threads": [t.name for t in threading.enumerate()]
     }), 200
 
 @app.route('/', methods=['GET'])
 def index():
-    return "📚 Telegram PDF Library Bot is running with polling (subprocess)."
+    return "📚 Telegram PDF Library Bot is running with synchronous Updater."
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
