@@ -46,11 +46,9 @@ def init_db():
                 value TEXT
             )
         """)
-        # Insert default lock status (unlocked)
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bot_locked', 'false')")
         conn.commit()
 
-# ------------------ File operations ------------------
 def add_file(file_id, file_unique_id, original_filename, file_size, message_id, channel_id):
     from utils import normalize_name
     name, _ = os.path.splitext(original_filename)
@@ -65,7 +63,6 @@ def add_file(file_id, file_unique_id, original_filename, file_size, message_id, 
             conn.commit()
             return True
         except sqlite3.IntegrityError:
-            # Duplicate file_unique_id – ignore silently or log
             return False
 
 def search_files(query):
@@ -84,7 +81,6 @@ def get_file_by_id(file_id):
         row = conn.execute("SELECT file_id FROM files WHERE id = ?", (file_id,)).fetchone()
     return dict(row) if row else None
 
-# ------------------ Stats ------------------
 def get_total_files():
     with get_db() as conn:
         return conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
@@ -96,7 +92,6 @@ def get_total_users():
 def get_db_size():
     return os.path.getsize(DATABASE) if os.path.exists(DATABASE) else 0
 
-# ------------------ Users ------------------
 def update_user(user_id, first_name, username):
     with get_db() as conn:
         conn.execute("""
@@ -114,7 +109,6 @@ def get_all_users():
         rows = conn.execute("SELECT user_id FROM users").fetchall()
     return [row[0] for row in rows]
 
-# ------------------ Settings ------------------
 def is_bot_locked():
     with get_db() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key = 'bot_locked'").fetchone()
