@@ -1,19 +1,16 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes, filters
-from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, SOURCE_CHANNEL
+from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
                       set_bot_locked, get_all_users)
 from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel
-import os
 import datetime
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Store bot start time globally (set in app.py)
-BOT_START_TIME = None
+BOT_START_TIME = datetime.datetime.now()
 
-# ---------- Helper to enforce force-sub ----------
 async def _check_and_send_force_sub(update: Update, context) -> bool:
     user = update.effective_user
     if not user:
@@ -27,7 +24,6 @@ async def _check_and_send_force_sub(update: Update, context) -> bool:
         return False
     return True
 
-# ---------- Decorator for admin-only commands ----------
 def owner_only(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         user_id = update.effective_user.id
@@ -37,7 +33,6 @@ def owner_only(func):
         return await func(update, context, *args, **kwargs)
     return wrapper
 
-# ---------- Public Commands ----------
 async def start(update: Update, context):
     if not await _check_and_send_force_sub(update, context):
         return
@@ -65,7 +60,7 @@ async def stats(update: Update, context):
         return
     total_files = get_total_files()
     total_users = get_total_users()
-    db_size = get_db_size() / 1024  # KB
+    db_size = get_db_size() / 1024
     uptime = get_uptime(BOT_START_TIME)
     mem = get_memory_usage()
     disk = get_disk_usage()
@@ -86,7 +81,6 @@ async def stats(update: Update, context):
 
     await update.message.reply_text(text, parse_mode='Markdown')
 
-# ---------- Admin Commands ----------
 @owner_only
 async def users(update: Update, context):
     count = get_total_users()
@@ -94,7 +88,6 @@ async def users(update: Update, context):
 
 @owner_only
 async def broadcast(update: Update, context):
-    # Usage: /broadcast <message>
     if not context.args:
         await update.message.reply_text("Usage: /broadcast <message>")
         return
@@ -113,7 +106,7 @@ async def broadcast(update: Update, context):
 @owner_only
 async def lock(update: Update, context):
     set_bot_locked(True)
-    await update.message.reply_text("🔒 Bot is now locked. Only admins can use commands.")
+    await update.message.reply_text("🔒 Bot is now locked. Only owner can use commands.")
     await log_to_channel(context.bot, "Bot locked by owner.")
 
 @owner_only
@@ -124,35 +117,31 @@ async def unlock(update: Update, context):
 
 @owner_only
 async def import_db(update: Update, context):
-    # Placeholder – you can implement DB import via file upload
     await update.message.reply_text("Import not implemented in this version.")
 
 @owner_only
 async def export_db(update: Update, context):
-    # Send the SQLite file as a document
     await update.message.reply_document(document=open('bot_data.db', 'rb'))
 
 @owner_only
 async def delete_db(update: Update, context):
-    # Dangerous: drop all tables
     await update.message.reply_text("⚠️ This will delete all data. Type /confirm_delete to proceed.")
     context.user_data['confirm_delete'] = True
 
 @owner_only
 async def confirm_delete(update: Update, context):
     if context.user_data.get('confirm_delete'):
-        from database import get_db
+        from database import get_db, init_db
         with get_db() as conn:
             conn.execute("DROP TABLE IF EXISTS files")
             conn.execute("DROP TABLE IF EXISTS users")
             conn.execute("DROP TABLE IF EXISTS settings")
-        init_db()  # re-create empty tables
+        init_db()
         await update.message.reply_text("✅ Database cleared.")
         await log_to_channel(context.bot, "Database deleted by owner.")
     else:
         await update.message.reply_text("No pending delete request.")
 
-# ---------- Register handlers ----------
 def get_handlers():
     return [
         CommandHandler("start", start, filters=filters.ChatType.GROUPS),
