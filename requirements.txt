@@ -1,9 +1,10 @@
 python-telegram-bot==13.15
-urllib3==1.26.20      # Required by telegram
-certifi               # SSL certificates
-chardet                # Character detection
-idna                   # Internationalized domain names
-requests               # HTTP library (telegram uses it)
+urllib3==1.26.20
+certifi
+chardet
+idna
+requests
+apscheduler==3.10.4
 Flask==2.3.3
 gunicorn==21.2.0
 python-dotenv==1.0.0
