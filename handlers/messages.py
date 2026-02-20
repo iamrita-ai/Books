@@ -1,25 +1,34 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji
 from telegram.ext import filters, MessageHandler, ContextTypes
 from database import search_files, update_user, is_bot_locked
 from utils import random_reaction, format_size, check_subscription, log_to_channel
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 async def group_message_handler(update: Update, context):
+    """Handle all messages in groups: react, then search if text."""
+    # React with random emoji (try, but ignore failures)
     try:
-        await update.message.react(random_reaction())
-    except Exception:
-        pass
+        emoji = random_reaction()
+        await update.message.react([ReactionTypeEmoji(emoji=emoji)])
+    except Exception as e:
+        logger.debug(f"Reaction failed: {e}")
 
     user = update.effective_user
+    if not user:
+        return
+
+    # Update user in DB
     update_user(user.id, user.first_name, user.username)
 
     # Lock check: allow only owner if locked
     if is_bot_locked() and user.id != OWNER_ID:
         return
 
+    # Force subscribe check
     if not await check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         await update.message.reply_text(
@@ -28,22 +37,32 @@ async def group_message_handler(update: Update, context):
         )
         return
 
-    query = update.message.text.strip()
-    if not query:
-        return
+    # If it's a text message, perform search
+    if update.message.text:
+        query = update.message.text.strip()
+        if not query:
+            return
 
-    results = search_files(query)
-    if not results:
-        await update.message.reply_text("❌ No books found matching your query.")
-        await log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
-        return
+        # Optional: handle #request specially
+        if query.lower().startswith("#request"):
+            # Could log or notify owner, but for now just inform user
+            await update.message.reply_text(
+                "📝 Your request has been noted. We'll try to add it if it's non-copyright."
+            )
+            await log_to_channel(context.bot, f"📌 Book request from {user.first_name}: {query[8:].strip()}")
+            return
 
-    total = len(results)
-    pages = (total + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
-    context.user_data['search_results'] = results
-    context.user_data['current_page'] = 0
+        results = search_files(query)
+        if not results:
+            await update.message.reply_text("❌ No books found matching your query.")
+            await log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
+            return
 
-    await send_results_page(update, context, page=0)
+        total = len(results)
+        context.user_data['search_results'] = results
+        context.user_data['current_page'] = 0
+
+        await send_results_page(update, context, page=0)
 
 async def send_results_page(update, context, page):
     results = context.user_data.get('search_results', [])
@@ -78,7 +97,8 @@ async def send_results_page(update, context, page):
         reply_markup=reply_markup
     )
 
+# Handler for all messages in groups
 group_message_handler_obj = MessageHandler(
-    filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS,
+    filters.ChatType.GROUPS & filters.ALL,
     group_message_handler
 )
