@@ -21,7 +21,7 @@ app = Flask(__name__)
 # Global bot objects and ready event
 bot_app = None
 loop = None
-bot_ready = threading.Event()  # Signal that bot is fully initialized
+bot_ready = threading.Event()
 
 init_db()
 commands.BOT_START_TIME = datetime.now()
@@ -32,66 +32,68 @@ def start_bot():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        # Build application without updater (webhook mode)
         bot_app = Application.builder().token(BOT_TOKEN).updater(None).build()
 
-        # Add handlers
         bot_app.add_handler(channel_handler)
         for handler in get_command_handlers():
             bot_app.add_handler(handler)
         bot_app.add_handler(group_message_handler_obj)
         bot_app.add_handler(callback_handler)
 
-        # Initialize and start the bot
         loop.run_until_complete(bot_app.initialize())
         loop.run_until_complete(bot_app.start())
 
-        # Set webhook
         async def set_webhook():
             await bot_app.bot.set_webhook(url=WEBHOOK_URL)
             logger.info(f"Webhook set to {WEBHOOK_URL}")
         loop.run_until_complete(set_webhook())
 
-        # Signal that the bot is ready
         bot_ready.set()
         logger.info("Bot started in background thread - event set")
     except Exception as e:
         logger.exception(f"Fatal error in start_bot: {e}")
-        return  # Thread will exit, but we can't recover
+        return
 
-    # Keep the event loop running forever
     loop.run_forever()
 
-# Start bot in a background daemon thread
 thread = threading.Thread(target=start_bot, daemon=True)
 thread.start()
 
+# ✅ FIX: Explicitly allow POST methods on the webhook route
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Log current event state
     logger.debug(f"Webhook received, event is_set: {bot_ready.is_set()}")
-    # Wait for bot to be ready (max 10 seconds)
+    
     if not bot_ready.wait(timeout=10):
         logger.error("Bot not ready within timeout")
         return "Bot not ready", 503
 
-    # Double-check that bot_app and loop are present
     if not bot_app or not loop:
         logger.error("bot_app or loop is None despite ready event")
         return "Bot not ready", 503
 
-    data = request.get_json(force=True)
-    update = Update.de_json(data, bot_app.bot)
+    try:
+        data = request.get_json(force=True)
+        logger.debug(f"Received update: {data.get('update_id')}")
+        update = Update.de_json(data, bot_app.bot)
+        asyncio.run_coroutine_threadsafe(bot_app.process_update(update), loop)
+        return "OK", 200
+    except Exception as e:
+        logger.exception(f"Error processing webhook: {e}")
+        return "Error", 500
 
-    # Submit the update to the bot's event loop
-    asyncio.run_coroutine_threadsafe(bot_app.process_update(update), loop)
-    return "OK", 200
-
+# Health check endpoint
 @app.route('/health', methods=['GET'])
 def health():
     status = "ready" if bot_ready.is_set() else "starting"
     return jsonify({"status": status}), 200
 
+# Root endpoint
 @app.route('/', methods=['GET'])
 def index():
     return "Telegram PDF Library Bot is running."
+
+# Add a catch-all for debugging (optional, remove in production)
+@app.route('/webhook', methods=['GET'])
+def webhook_get():
+    return "Webhook endpoint accepts POST only", 405
