@@ -66,6 +66,7 @@ def add_file(file_id, file_unique_id, original_filename, file_size, message_id, 
             return False
 
 def search_files(query):
+    from utils import normalize_name
     normalized_query = f"%{normalize_name(query)}%"
     with get_db() as conn:
         rows = conn.execute("""
