@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import threading
-import time
 from flask import Flask, jsonify
 from telegram.ext import Application
 from config import BOT_TOKEN
@@ -62,6 +61,17 @@ def run_polling():
     finally:
         logger.info("🛑 Polling thread stopped")
 
+def start_polling():
+    """Start polling in a background thread."""
+    global polling_thread
+    polling_thread = threading.Thread(target=run_polling, daemon=True, name="PollingThread")
+    polling_thread.start()
+    logger.info(f"Polling thread started with ID: {polling_thread.ident}")
+
+# ⚠️ IMPORTANT: Start polling at module level, not inside __main__
+logger.info("🔄 Initializing bot...")
+start_polling()
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
@@ -90,18 +100,8 @@ def debug():
 def index():
     return "📚 Telegram PDF Library Bot is running with polling."
 
-def start_polling():
-    """Start polling in a background thread."""
-    global polling_thread
-    polling_thread = threading.Thread(target=run_polling, daemon=True, name="PollingThread")
-    polling_thread.start()
-    logger.info(f"Polling thread started with ID: {polling_thread.ident}")
-
+# This block still runs when executed directly (for local testing)
 if __name__ == '__main__':
-    # Start polling in background
-    start_polling()
-    
-    # Run Flask in the main thread
     port = int(os.environ.get('PORT', 8080))
     logger.info(f"Starting Flask on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
