@@ -4,13 +4,10 @@ from database import search_files, update_user, is_bot_locked
 from utils import random_reaction, format_size, check_subscription, log_to_channel
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
-import asyncio
 
 logger = logging.getLogger(__name__)
 
 async def group_message_handler(update: Update, context):
-    """Handle all messages in groups: react, then search if text."""
-    # React with random emoji (try, but ignore failures)
     try:
         emoji = random_reaction()
         await update.message.react([ReactionTypeEmoji(emoji=emoji)])
@@ -21,14 +18,11 @@ async def group_message_handler(update: Update, context):
     if not user:
         return
 
-    # Update user in DB
     update_user(user.id, user.first_name, user.username)
 
-    # Lock check: allow only owner if locked
     if is_bot_locked() and user.id != OWNER_ID:
         return
 
-    # Force subscribe check
     if not await check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         await update.message.reply_text(
@@ -37,15 +31,12 @@ async def group_message_handler(update: Update, context):
         )
         return
 
-    # If it's a text message, perform search
     if update.message.text:
         query = update.message.text.strip()
         if not query:
             return
 
-        # Optional: handle #request specially
         if query.lower().startswith("#request"):
-            # Could log or notify owner, but for now just inform user
             await update.message.reply_text(
                 "📝 Your request has been noted. We'll try to add it if it's non-copyright."
             )
@@ -97,7 +88,6 @@ async def send_results_page(update, context, page):
         reply_markup=reply_markup
     )
 
-# Handler for all messages in groups
 group_message_handler_obj = MessageHandler(
     filters.ChatType.GROUPS & filters.ALL,
     group_message_handler
