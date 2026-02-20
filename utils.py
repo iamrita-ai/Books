@@ -18,7 +18,6 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} TB"
 
 def random_reaction() -> str:
-    """Return a random emoji from Telegram's supported reaction set."""
     emojis = [
         "👍", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🎉",
         "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"
