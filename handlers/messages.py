@@ -7,14 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def group_message_handler(update: Update, context: CallbackContext):
-    # Try to send a reaction (will silently fail if not supported)
-    try:
-        # In PTB v13.15, reactions are not directly supported, so we skip
-        pass
-    except Exception:
-        pass
-
+def group_message_handler(update: Update, context: CallbackContext):
+    # Reactions not supported in this version – silently skip
     user = update.effective_user
     if not user:
         return
@@ -26,9 +20,9 @@ async def group_message_handler(update: Update, context: CallbackContext):
         return
 
     # Force subscribe check
-    if FORCE_SUB_CHANNEL and not await check_subscription(user.id, context.bot):
+    if FORCE_SUB_CHANNEL and not check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
-        await update.message.reply_text(
+        update.message.reply_text(
             "⚠️ You must join our channel to search for books.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -43,11 +37,10 @@ async def group_message_handler(update: Update, context: CallbackContext):
         if query.lower().startswith("#request"):
             book_name = query[8:].strip()
             if book_name:
-                await update.message.reply_text(
+                update.message.reply_text(
                     "📝 Your request has been noted. We'll try to add it if it's non-copyright."
                 )
-                await log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
-                # Forward to owner
+                log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
                 if OWNER_ID:
                     try:
                         text = (
@@ -57,25 +50,24 @@ async def group_message_handler(update: Update, context: CallbackContext):
                             f"**User ID:** `{user.id}`\n"
                             f"**Group:** {update.effective_chat.title}"
                         )
-                        await context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
+                        context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
                     except:
                         pass
             else:
-                await update.message.reply_text("Please specify a book name after #request.")
+                update.message.reply_text("Please specify a book name after #request.")
             return
 
-        # Perform search
         results = search_files(query)
         if not results:
-            await update.message.reply_text("❌ No books found matching your query.")
-            await log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
+            update.message.reply_text("❌ No books found matching your query.")
+            log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
             return
 
         context.user_data['search_results'] = results
         context.user_data['current_page'] = 0
-        await send_results_page(update, context, 0)
+        send_results_page(update, context, 0)
 
-async def send_results_page(update: Update, context: CallbackContext, page):
+def send_results_page(update: Update, context: CallbackContext, page):
     results = context.user_data.get('search_results', [])
     total = len(results)
     start = page * RESULTS_PER_PAGE
@@ -87,7 +79,6 @@ async def send_results_page(update: Update, context: CallbackContext, page):
         btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
 
-    # Navigation row
     nav_buttons = []
     if page > 0:
         nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
@@ -96,19 +87,18 @@ async def send_results_page(update: Update, context: CallbackContext, page):
     if nav_buttons:
         keyboard.append(nav_buttons)
 
-    # Info row
     info_buttons = build_info_keyboard()
     if info_buttons:
         keyboard.append(info_buttons)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
+    update.message.reply_text(
         f"📚 Found **{total}** results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
         reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN
     )
 
 group_message_handler_obj = MessageHandler(
-    Filters.group & Filters.all,
+    Filters.group & Filters.text,
     group_message_handler
 )
