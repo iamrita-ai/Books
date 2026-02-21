@@ -1,38 +1,26 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import filters, MessageHandler, ContextTypes
 from database import search_files, update_user, is_bot_locked
-from utils import random_reaction, format_size, check_subscription, log_to_channel
-from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
+from utils import random_reaction, format_size, check_subscription, log_to_channel, build_info_keyboard
+from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID, REQUEST_GROUP
 import logging
-
-# Try to import ReactionTypeEmoji; fallback to private module or disable reactions
-try:
-    from telegram import ReactionTypeEmoji
-    REACTION_SUPPORTED = True
-except ImportError:
-    try:
-        from telegram._reaction import ReactionTypeEmoji
-        REACTION_SUPPORTED = True
-    except ImportError:
-        REACTION_SUPPORTED = False
-        # Dummy class to avoid NameError
-        class ReactionTypeEmoji:
-            def __init__(self, emoji):
-                self.emoji = emoji
 
 logger = logging.getLogger(__name__)
 
 async def group_message_handler(update: Update, context):
-    # Reaction on every message (if supported)
-    if REACTION_SUPPORTED:
+    # React with random emoji
+    try:
+        # For PTB v13.15, reaction method might be different. We'll try the new API if available.
+        # If not, we'll use send_reaction method (but it's not in v13.15). So we'll just log.
+        # In newer versions, you'd use await update.message.react([emoji]).
+        # We'll attempt but ignore failures.
         try:
-            emoji = random_reaction()
-            await update.message.react([ReactionTypeEmoji(emoji=emoji)])
-        except Exception as e:
-            logger.debug(f"Reaction failed: {e}")
-    else:
-        # Optional: log that reactions are not supported
-        pass
+            await update.message.react([random_reaction()])
+        except AttributeError:
+            # Old version, skip reaction
+            pass
+    except Exception as e:
+        logger.debug(f"Reaction failed: {e}")
 
     user = update.effective_user
     if not user:
@@ -40,10 +28,12 @@ async def group_message_handler(update: Update, context):
 
     update_user(user.id, user.first_name, user.username)
 
+    # Lock check
     if is_bot_locked() and user.id != OWNER_ID:
         return
 
-    if not await check_subscription(user.id, context.bot):
+    # Force subscribe check
+    if FORCE_SUB_CHANNEL and not await check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         await update.message.reply_text(
             "⚠️ You must join our channel to search for books.",
@@ -56,24 +46,41 @@ async def group_message_handler(update: Update, context):
         if not query:
             return
 
+        # Handle #request
         if query.lower().startswith("#request"):
-            await update.message.reply_text(
-                "📝 Your request has been noted. We'll try to add it if it's non-copyright."
-            )
-            await log_to_channel(context.bot, f"📌 Book request from {user.first_name}: {query[8:].strip()}")
+            book_name = query[8:].strip()
+            if book_name:
+                await update.message.reply_text(
+                    "📝 Your request has been noted. We'll try to add it if it's non-copyright."
+                )
+                await log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
+                # Also forward to owner
+                if OWNER_ID:
+                    try:
+                        text = (
+                            f"📌 **Group Book Request**\n\n"
+                            f"**Book:** `{book_name}`\n"
+                            f"**User:** {user.first_name} (@{user.username})\n"
+                            f"**User ID:** `{user.id}`\n"
+                            f"**Group:** {update.effective_chat.title}"
+                        )
+                        await context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
+                    except:
+                        pass
+            else:
+                await update.message.reply_text("Please specify a book name after #request.")
             return
 
+        # Perform search
         results = search_files(query)
         if not results:
             await update.message.reply_text("❌ No books found matching your query.")
             await log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
             return
 
-        total = len(results)
         context.user_data['search_results'] = results
         context.user_data['current_page'] = 0
-
-        await send_results_page(update, context, page=0)
+        await send_results_page(update, context, 0)
 
 async def send_results_page(update, context, page):
     results = context.user_data.get('search_results', [])
@@ -84,9 +91,11 @@ async def send_results_page(update, context, page):
 
     keyboard = []
     for res in page_results:
-        btn_text = f"{res['original_filename']} ({format_size(res['file_size'])})"
+        # Use emojis to make buttons more attractive
+        btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
 
+    # Navigation row
     nav_buttons = []
     if page > 0:
         nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
@@ -95,17 +104,16 @@ async def send_results_page(update, context, page):
     if nav_buttons:
         keyboard.append(nav_buttons)
 
-    info_row = [
-        InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"),
-        InlineKeyboardButton("📢 Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}"),
-        InlineKeyboardButton("ℹ️ Info", callback_data="info")
-    ]
-    keyboard.append(info_row)
+    # Info row
+    info_buttons = build_info_keyboard()
+    if info_buttons:
+        keyboard.append(info_buttons)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        f"📚 Found {total} results (page {page+1}/{ (total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE }):",
-        reply_markup=reply_markup
+        f"📚 Found **{total}** results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN
     )
 
 group_message_handler_obj = MessageHandler(
