@@ -1,5 +1,5 @@
 import logging
-import multiprocessing
+import threading
 import os
 import sys
 import time
@@ -15,16 +15,15 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Bot token from environment
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
-# ------------------ Bot Process ------------------
+# ------------------ Bot Thread ------------------
 def run_bot():
-    """Run the bot in a separate process."""
-    # Import telegram here to avoid interfering with Flask
+    """Run the bot in a background thread."""
+    # Import telegram here so Flask can start first
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
     
     def start(update, context):
@@ -39,7 +38,7 @@ def run_bot():
     def error_handler(update, context):
         logger.error(f"Update {update} caused error {context.error}")
     
-    logger.info("🚀 Starting bot process...")
+    logger.info("🚀 Starting bot thread...")
     try:
         updater = Updater(BOT_TOKEN, use_context=True)
         dp = updater.dispatcher
@@ -52,30 +51,27 @@ def run_bot():
         logger.info("✅ Bot is polling!")
         updater.idle()
     except Exception as e:
-        logger.exception(f"❌ Bot process error: {e}")
+        logger.exception(f"❌ Bot thread error: {e}")
 
-# Start bot process
-bot_process = multiprocessing.Process(target=run_bot, name="BotProcess")
-bot_process.daemon = True  # Will be killed when main process exits
-bot_process.start()
-logger.info(f"Bot process started with PID: {bot_process.pid}")
+# Start bot thread (daemon so it exits when Flask stops)
+bot_thread = threading.Thread(target=run_bot, daemon=True, name="BotThread")
+bot_thread.start()
+logger.info(f"Bot thread started: {bot_thread.ident}")
 
 # ------------------ Flask Web Server ------------------
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check for Render."""
     return jsonify({
         "status": "healthy",
-        "bot_process_alive": bot_process.is_alive(),
-        "bot_pid": bot_process.pid
+        "bot_thread_alive": bot_thread.is_alive()
     }), 200
 
 @app.route('/', methods=['GET'])
 def index():
     return "📚 Telegram PDF Library Bot is running."
 
-# This is the critical part for Render – bind to PORT
+# Bind to PORT for Render
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    logger.info(f"Starting Flask server on port {port}")
+    logger.info(f"Starting Flask on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
