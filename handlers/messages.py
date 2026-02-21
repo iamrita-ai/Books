@@ -4,19 +4,63 @@ from database import search_files, update_user, is_bot_locked
 from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, random_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
+import queue
+import threading
 import time
+import random
 
 logger = logging.getLogger(__name__)
 
+# Reaction queue and processing thread (similar to user's reaction bot)
+reaction_queue = queue.Queue()
+reaction_running = True
+
+def reaction_worker():
+    """Worker thread to process reactions from queue."""
+    while reaction_running:
+        try:
+            chat_id, message_id, msg_type = reaction_queue.get(timeout=1)
+            # Determine emoji based on message type
+            emoji_pools = {
+                "text": ["❤️", "🔥", "👍", "👏", "🎉", "🤔", "😮", "🤝", "💯", "⚡"],
+                "photo": ["❤️", "🔥", "👍", "👏", "😍", "🤩", "✨", "🌟", "🎯", "🏆"],
+                "video": ["🔥", "🎬", "👍", "👏", "😎", "💯", "⚡", "🚀", "🎉", "🏅"],
+                "sticker": ["😄", "😂", "🤣", "😍", "😎", "🤩", "🎭", "✨", "👍", "👌"],
+                "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
+            }
+            emojis = emoji_pools.get(msg_type, emoji_pools["text"])
+            # Send 1-3 reactions with slight delay
+            num_reactions = random.randint(1, 3)
+            for i in range(num_reactions):
+                emoji = random.choice(emojis)
+                is_big = random.choice([True, False])
+                send_reaction(chat_id, message_id, emoji, is_big)
+                time.sleep(random.uniform(0.2, 0.5))
+            reaction_queue.task_done()
+        except queue.Empty:
+            time.sleep(0.1)
+        except Exception as e:
+            logger.error(f"Reaction worker error: {e}")
+
+# Start the reaction worker thread
+reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
+reaction_thread.start()
+
 def group_message_handler(update: Update, context: CallbackContext):
-    # React with a random emoji (direct API call)
-    try:
-        emoji = random_reaction()
-        # Send a random big reaction sometimes
-        is_big = random.choice([True, False])
-        send_reaction(update.effective_chat.id, update.message.message_id, emoji, is_big)
-    except Exception as e:
-        logger.debug(f"Reaction failed: {e}")
+    # Add message to reaction queue
+    chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    # Determine message type
+    msg_type = "text"
+    if update.message.photo:
+        msg_type = "photo"
+    elif update.message.video:
+        msg_type = "video"
+    elif update.message.sticker:
+        msg_type = "sticker"
+    elif update.message.document:
+        msg_type = "document"
+    reaction_queue.put((chat_id, message_id, msg_type))
 
     user = update.effective_user
     if not user:
@@ -108,6 +152,6 @@ def send_results_page(update: Update, context: CallbackContext, page):
     )
 
 group_message_handler_obj = MessageHandler(
-    Filters.chat_type.groups & Filters.all,  # React to all messages, but search only text
+    Filters.chat_type.groups & Filters.all,
     group_message_handler
 )
