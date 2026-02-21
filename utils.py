@@ -1,8 +1,10 @@
 import re
 import random
+import requests
+import time
 from datetime import datetime
 import psutil
-from config import FORCE_SUB_CHANNEL, LOG_CHANNEL
+from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN
 
 def normalize_name(name: str) -> str:
     name = name.lower()
@@ -23,6 +25,23 @@ def random_reaction() -> str:
         "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"
     ]
     return random.choice(emojis)
+
+def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False):
+    """Send reaction using direct API call (bypasses PTB)."""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMessageReaction"
+    data = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "reaction": [{"type": "emoji", "emoji": emoji}]
+    }
+    if is_big:
+        data["is_big"] = True
+    try:
+        response = requests.post(url, json=data, timeout=5)
+        return response.json().get("ok", False)
+    except Exception as e:
+        print(f"Reaction error: {e}")
+        return False
 
 def check_subscription(user_id, bot):
     if not FORCE_SUB_CHANNEL:
