@@ -59,3 +59,17 @@ def get_disk_usage():
         return usage.used / (1024 * 1024)
     except:
         return None
+
+def build_info_keyboard():
+    """Build the info row with owner contact and channel."""
+    from telegram import InlineKeyboardButton
+    from config import OWNER_ID, OWNER_USERNAME, FORCE_SUB_CHANNEL
+    buttons = []
+    if OWNER_USERNAME:
+        buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{OWNER_USERNAME[1:]}"))
+    elif OWNER_ID:
+        buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
+    if FORCE_SUB_CHANNEL:
+        buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}"))
+    buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
+    return buttons
