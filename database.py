@@ -82,17 +82,6 @@ def get_file_by_id(file_id):
         row = conn.execute("SELECT file_id FROM files WHERE id = ?", (file_id,)).fetchone()
     return dict(row) if row else None
 
-def get_total_files():
-    with get_db() as conn:
-        return conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-
-def get_total_users():
-    with get_db() as conn:
-        return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-
-def get_db_size():
-    return os.path.getsize(DATABASE) if os.path.exists(DATABASE) else 0
-
 def update_user(user_id, first_name, username):
     with get_db() as conn:
         conn.execute("""
@@ -105,17 +94,9 @@ def update_user(user_id, first_name, username):
         """, (user_id, first_name, username))
         conn.commit()
 
-def get_all_users():
-    with get_db() as conn:
-        rows = conn.execute("SELECT user_id FROM users").fetchall()
-    return [row[0] for row in rows]
-
 def is_bot_locked():
     with get_db() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key = 'bot_locked'").fetchone()
     return row and row[0] == 'true'
 
-def set_bot_locked(locked: bool):
-    with get_db() as conn:
-        conn.execute("UPDATE settings SET value = ? WHERE key = 'bot_locked'", ('true' if locked else 'false',))
-        conn.commit()
+# Add other functions as needed (log_to_channel, etc.)
