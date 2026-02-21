@@ -20,10 +20,10 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
-# Import database and utils (these don't cause import errors)
+# Import database and handlers
 from database import init_db
 from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
-from config import BOT_NAME, OWNER_ID, FORCE_SUB_CHANNEL, SOURCE_CHANNEL, LOG_CHANNEL
+from config import BOT_NAME
 import datetime
 
 # Initialize database
@@ -76,8 +76,7 @@ start_bot_thread()
 def health():
     return jsonify({
         "status": "healthy",
-        "bot_thread_alive": bot_thread.is_alive() if bot_thread else False,
-        "total_commands": "all good"
+        "bot_thread_alive": bot_thread.is_alive() if bot_thread else False
     }), 200
 
 @app.route('/', methods=['GET'])
