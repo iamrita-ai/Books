@@ -4,7 +4,7 @@ import requests
 import time
 from datetime import datetime
 import psutil
-from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN
+from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN, OWNER_ID, OWNER_USERNAME, REQUEST_GROUP
 
 def normalize_name(name: str) -> str:
     name = name.lower()
@@ -27,7 +27,7 @@ def random_reaction() -> str:
     return random.choice(emojis)
 
 def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False):
-    """Send reaction using direct API call (bypasses PTB)."""
+    """Send reaction using direct API call."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMessageReaction"
     data = {
         "chat_id": chat_id,
@@ -79,10 +79,41 @@ def get_disk_usage():
     except:
         return None
 
-def build_info_keyboard():
-    """Build the info row with owner contact and channel."""
+def build_start_keyboard():
+    """Build the inline keyboard for /start message."""
     from telegram import InlineKeyboardButton
-    from config import OWNER_ID, OWNER_USERNAME, FORCE_SUB_CHANNEL
+    buttons = []
+    
+    # Owner button
+    if OWNER_USERNAME:
+        owner_display = OWNER_USERNAME if OWNER_USERNAME.startswith('@') else f"@{OWNER_USERNAME}"
+        buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{owner_display[1:]}"))
+    elif OWNER_ID:
+        buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
+    
+    # Force sub channel button
+    if FORCE_SUB_CHANNEL:
+        channel_display = FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL.startswith('@') else f"@{FORCE_SUB_CHANNEL}"
+        buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
+    
+    # Request group button
+    if REQUEST_GROUP:
+        # If it's a username, convert to link, else assume it's a full invite link
+        if REQUEST_GROUP.startswith('@'):
+            buttons.append(InlineKeyboardButton("📝 Request Group", url=f"https://t.me/{REQUEST_GROUP[1:]}"))
+        else:
+            buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
+    
+    # Info button (already handled in callbacks)
+    buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
+    
+    # Arrange in a single row? We'll put all in one row if space permits, else we can split.
+    # For simplicity, we'll put all in one row. Telegram supports up to 8 buttons per row.
+    return [buttons]  # This returns a list of rows (single row)
+
+def build_info_keyboard():
+    """Build the info row for search results (same as start but without request group maybe)."""
+    from telegram import InlineKeyboardButton
     buttons = []
     
     if OWNER_USERNAME:
@@ -96,4 +127,4 @@ def build_info_keyboard():
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return buttons
+    return [buttons]  # single row
