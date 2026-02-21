@@ -1,4 +1,4 @@
-from telegram.ext import filters, MessageHandler
+from telegram.ext import filters, MessageHandler, Filters
 from telegram import Update
 from config import SOURCE_CHANNEL, MAX_FILE_SIZE, LOG_CHANNEL
 from database import add_file
@@ -32,8 +32,8 @@ async def channel_post_handler(update: Update, context):
         await log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
 
-# ✅ FIX: Use positional arguments (chat_id, chat_type) – chat_type 'channel' ensures only channel posts
+# ✅ FIX: Use Filters.document (with capital F) and filters.Chat with positional args
 channel_handler = MessageHandler(
-    filters.Chat(SOURCE_CHANNEL, 'channel') & filters.Document.ALL,
+    filters.Chat(SOURCE_CHANNEL, 'channel') & Filters.document,
     channel_post_handler
 )
