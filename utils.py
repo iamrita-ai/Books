@@ -112,19 +112,21 @@ def build_start_keyboard():
     return [buttons]  # This returns a list of rows (single row)
 
 def build_info_keyboard():
-    """Build the info row for search results (same as start but without request group maybe)."""
     from telegram import InlineKeyboardButton
+    from config import OWNER_ID, OWNER_USERNAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
     buttons = []
-    
     if OWNER_USERNAME:
         owner_display = OWNER_USERNAME if OWNER_USERNAME.startswith('@') else f"@{OWNER_USERNAME}"
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{owner_display[1:]}"))
     elif OWNER_ID:
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
-    
     if FORCE_SUB_CHANNEL:
         channel_display = FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL.startswith('@') else f"@{FORCE_SUB_CHANNEL}"
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
-    
+    if REQUEST_GROUP:
+        if REQUEST_GROUP.startswith('@'):
+            buttons.append(InlineKeyboardButton("📝 Request Group", url=f"https://t.me/{REQUEST_GROUP[1:]}"))
+        else:
+            buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
     return [buttons]  # single row
