@@ -32,8 +32,7 @@ async def channel_post_handler(update: Update, context):
         await log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
 
-# ✅ FIX: Use Filters.chat(chat_id) & Filters.document
 channel_handler = MessageHandler(
-    Filters.chat(SOURCE_CHANNEL) & Filters.document,
+    Filters.chat(chat_id=SOURCE_CHANNEL) & Filters.document,
     channel_post_handler
 )
