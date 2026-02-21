@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
-from telegram.ext import CallbackQueryHandler, ContextTypes
+from telegram.ext import CallbackQueryHandler, CallbackContext
+# ... rest
 from database import get_file_by_id
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE
 from utils import format_size, build_info_keyboard
