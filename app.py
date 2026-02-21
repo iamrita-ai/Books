@@ -1,6 +1,5 @@
 import logging
 import threading
-import time
 import os
 import sys
 from flask import Flask, jsonify
@@ -18,8 +17,25 @@ dummy_imghdr.what = what
 sys.modules['imghdr'] = dummy_imghdr
 # --------------------------------------------------
 
+# ---------- FIX: Add dummy pkg_resources module (for APScheduler) ----------
+dummy_pkg_resources = ModuleType('pkg_resources')
+def get_distribution(dist):
+    # Return a dummy object with version
+    class DummyDist:
+        version = '0.0.0'
+    return DummyDist()
+dummy_pkg_resources.get_distribution = get_distribution
+# Also define DistributionNotFound exception
+class DistributionNotFound(Exception):
+    pass
+dummy_pkg_resources.DistributionNotFound = DistributionNotFound
+sys.modules['pkg_resources'] = dummy_pkg_resources
+# --------------------------------------------------------------------------
+
+# Now import telegram (it will find the dummy modules)
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
+# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -29,14 +45,13 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Bot token from environment
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
-updater = None
-bot_thread = None
-
+# Simple handler functions
 def start(update, context):
     update.message.reply_text(
         "👋 Hello! I'm a PDF library bot.\n"
@@ -62,7 +77,7 @@ def error_handler(update, context):
     logger.error(f"Update {update} caused error {context.error}")
 
 def start_bot():
-    global updater
+    """Run the bot in a background thread."""
     logger.info("🚀 Starting bot with Updater...")
     try:
         updater = Updater(BOT_TOKEN, use_context=True)
@@ -78,6 +93,7 @@ def start_bot():
     except Exception as e:
         logger.exception(f"❌ Fatal error in bot thread: {e}")
 
+# Start bot in background thread
 bot_thread = threading.Thread(target=start_bot, daemon=True, name="BotThread")
 bot_thread.start()
 logger.info(f"Bot thread started: {bot_thread.ident}")
@@ -87,23 +103,12 @@ def health():
     thread_alive = bot_thread.is_alive() if bot_thread else False
     return jsonify({
         "status": "healthy",
-        "bot_thread_alive": thread_alive,
-        "updater_running": updater is not None
-    }), 200
-
-@app.route('/debug', methods=['GET'])
-def debug():
-    return jsonify({
-        "bot_thread_alive": bot_thread.is_alive() if bot_thread else False,
-        "bot_thread_name": bot_thread.name if bot_thread else None,
-        "updater": str(updater) if updater else None,
-        "total_threads": threading.active_count(),
-        "threads": [t.name for t in threading.enumerate()]
+        "bot_thread_alive": thread_alive
     }), 200
 
 @app.route('/', methods=['GET'])
 def index():
-    return "📚 Telegram PDF Library Bot is running with synchronous Updater."
+    return "📚 Telegram PDF Library Bot is running."
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
