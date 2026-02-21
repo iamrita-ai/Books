@@ -8,13 +8,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 def channel_post_handler(update: Update, context):
-    # Safety check: if no channel_post, ignore
     if not update.channel_post:
         return
 
     logger.info(f"Channel post received: chat_id={update.channel_post.chat.id}, msg_id={update.channel_post.message_id}")
 
-    # Verify it's from our source channel
     if update.channel_post.chat.id != SOURCE_CHANNEL:
         logger.warning(f"Post from {update.channel_post.chat.id}, expected {SOURCE_CHANNEL}")
         return
