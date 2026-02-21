@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def channel_post_handler(update: Update, context):
+def channel_post_handler(update: Update, context):
     if not update.channel_post or update.channel_post.chat.id != SOURCE_CHANNEL:
         return
 
@@ -16,7 +16,7 @@ async def channel_post_handler(update: Update, context):
         return
 
     if doc.file_size > MAX_FILE_SIZE:
-        await log_to_channel(context.bot,
+        log_to_channel(context.bot,
             f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
         return
 
@@ -29,7 +29,7 @@ async def channel_post_handler(update: Update, context):
         channel_id=SOURCE_CHANNEL
     )
     if added:
-        await log_to_channel(context.bot,
+        log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
 
 channel_handler = MessageHandler(
