@@ -1,18 +1,22 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked
-from utils import format_size, check_subscription, log_to_channel, build_info_keyboard
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, random_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 def group_message_handler(update: Update, context: CallbackContext):
-    # Reactions not supported in this version – we can send a typing action instead
+    # React with a random emoji (direct API call)
     try:
-        context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    except:
-        pass
+        emoji = random_reaction()
+        # Send a random big reaction sometimes
+        is_big = random.choice([True, False])
+        send_reaction(update.effective_chat.id, update.message.message_id, emoji, is_big)
+    except Exception as e:
+        logger.debug(f"Reaction failed: {e}")
 
     user = update.effective_user
     if not user:
@@ -104,6 +108,6 @@ def send_results_page(update: Update, context: CallbackContext, page):
     )
 
 group_message_handler_obj = MessageHandler(
-    Filters.chat_type.groups & Filters.text,
+    Filters.chat_type.groups & Filters.all,  # React to all messages, but search only text
     group_message_handler
 )
