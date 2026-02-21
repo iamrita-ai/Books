@@ -3,6 +3,7 @@ import threading
 import os
 import sys
 import time
+import fcntl  # for file locking (Linux only, works on Render)
 from flask import Flask, jsonify
 
 # Configure logging
@@ -33,21 +34,44 @@ BOT_START_TIME = datetime.datetime.now()
 # Global flag to control bot thread
 bot_running = True
 bot_thread = None
-updater_instance = None  # Store updater reference
+updater_instance = None
+
+# File lock path (must be in a writable location)
+LOCK_FILE = '/tmp/bot.lock'
+
+def acquire_lock():
+    """Try to acquire a file lock. Returns True if successful, False otherwise."""
+    try:
+        global lock_fp
+        lock_fp = open(LOCK_FILE, 'w')
+        fcntl.flock(lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except (IOError, OSError):
+        return False
+
+def release_lock():
+    """Release the file lock."""
+    try:
+        fcntl.flock(lock_fp, fcntl.LOCK_UN)
+        lock_fp.close()
+    except:
+        pass
 
 def run_bot():
-    """Run the bot in a background thread."""
+    """Run the bot in a background thread with automatic recovery."""
     global updater_instance
     from telegram.ext import Updater
-    from telegram.error import Conflict, NetworkError
+    from telegram.error import Conflict, NetworkError, TelegramError
 
-    logger.info("🚀 Starting bot thread...")
+    # Try to acquire the lock – if not, this thread exits silently.
+    if not acquire_lock():
+        logger.warning("Another bot instance is already running. Exiting this thread.")
+        return
+
+    logger.info("🚀 Starting bot thread (lock acquired).")
     
-    # Add retry mechanism for polling
-    max_retries = 5
-    retry_count = 0
-    
-    while retry_count < max_retries and bot_running:
+    # Outer loop for auto‑restart
+    while bot_running:
         try:
             updater = Updater(BOT_TOKEN, use_context=True)
             updater_instance = updater
@@ -60,45 +84,48 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # Start polling with proper settings
+            # Error handler to log and possibly restart
+            def error_callback(update, context):
+                logger.error(f"Update {update} caused error {context.error}")
+                if isinstance(context.error, Conflict):
+                    logger.critical("Conflict detected – updater will stop.")
+                    # Force stop the updater (it will be restarted by the outer loop)
+                    updater.stop()
+
+            dp.add_error_handler(error_callback)
+
+            # Start polling with recommended settings
             logger.info("Starting polling...")
             updater.start_polling(
                 poll_interval=1.0,
                 timeout=30,
-                clean=True,
+                drop_pending_updates=True,  # replaces deprecated 'clean'
                 bootstrap_retries=3
             )
             logger.info("✅ Bot is polling and ready to receive updates!")
-            
-            # Keep thread alive without using idle()
+
+            # Keep thread alive; updater runs in its own threads.
             while bot_running:
                 time.sleep(10)
-                logger.debug("Bot thread heartbeat - still alive")
-                
-            # If we exit the loop, stop polling
+                logger.debug("Bot thread heartbeat - lock held")
+
+            # If we exit the loop, stop the updater and release lock
             updater.stop()
             break
-            
+
         except Conflict as e:
-            retry_count += 1
-            logger.error(f"Conflict error (attempt {retry_count}/{max_retries}): {e}")
-            if retry_count < max_retries:
-                logger.info("Waiting 10 seconds before retry...")
-                time.sleep(10)
-            else:
-                logger.critical("Max retries reached. Bot thread stopping.")
-                
+            logger.error(f"Conflict on startup: {e}. Waiting 30 seconds...")
+            time.sleep(30)
         except NetworkError as e:
-            retry_count += 1
-            logger.error(f"Network error (attempt {retry_count}/{max_retries}): {e}")
-            if retry_count < max_retries:
-                logger.info("Waiting 5 seconds before retry...")
-                time.sleep(5)
-                
+            logger.error(f"Network error: {e}. Retrying in 15 seconds...")
+            time.sleep(15)
         except Exception as e:
-            logger.exception(f"❌ Unexpected bot thread error: {e}")
-            time.sleep(10)  # Wait before restarting
-            retry_count += 1
+            logger.exception(f"Unexpected error in bot thread: {e}")
+            time.sleep(10)
+
+    # Release the lock when the thread exits
+    release_lock()
+    logger.info("Bot thread exiting, lock released.")
 
 def start_bot_thread():
     global bot_thread
