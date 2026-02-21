@@ -1,6 +1,6 @@
 python-telegram-bot==13.15
 APScheduler==3.6.3
-setuptools
+setuptools==68.2.2          # Explicit version for pkg_resources
 Flask==2.3.3
 gunicorn==21.2.0
 python-dotenv==1.0.0
