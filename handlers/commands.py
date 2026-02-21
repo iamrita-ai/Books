@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CommandHandler, CallbackContext, Filters
-# ... rest remains same, but change all `ContextTypes.DEFAULT_TYPE` to `CallbackContext`
 from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
                       set_bot_locked, get_all_users, update_user)
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 BOT_START_TIME = datetime.datetime.now()
 
-async def _check_and_send_force_sub(update: Update, context) -> bool:
+async def _check_and_send_force_sub(update: Update, context: CallbackContext) -> bool:
     user = update.effective_user
     if not user:
         return False
@@ -26,7 +25,7 @@ async def _check_and_send_force_sub(update: Update, context) -> bool:
     return True
 
 def owner_only(func):
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+    async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
         user_id = update.effective_user.id
         if user_id != OWNER_ID:
             await update.message.reply_text("⛔ You are not authorized to use this command.")
@@ -34,7 +33,7 @@ def owner_only(func):
         return await func(update, context, *args, **kwargs)
     return wrapper
 
-async def start(update: Update, context):
+async def start(update: Update, context: CallbackContext):
     user = update.effective_user
     update_user(user.id, user.first_name, user.username)
 
@@ -66,7 +65,7 @@ async def start(update: Update, context):
         )
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
-async def help_command(update: Update, context):
+async def help_command(update: Update, context: CallbackContext):
     text = (
         "📚 **Help & Commands**\n\n"
         "**Group commands:**\n"
@@ -89,7 +88,7 @@ async def help_command(update: Update, context):
     )
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
-async def stats(update: Update, context):
+async def stats(update: Update, context: CallbackContext):
     if not await _check_and_send_force_sub(update, context):
         return
     total_files = get_total_files()
@@ -116,12 +115,12 @@ async def stats(update: Update, context):
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 @owner_only
-async def users(update: Update, context):
+async def users(update: Update, context: CallbackContext):
     count = get_total_users()
     await update.message.reply_text(f"👥 **Total users:** {count}", parse_mode=ParseMode.MARKDOWN)
 
 @owner_only
-async def broadcast(update: Update, context):
+async def broadcast(update: Update, context: CallbackContext):
     if not context.args:
         await update.message.reply_text("Usage: `/broadcast <message>`", parse_mode=ParseMode.MARKDOWN)
         return
@@ -138,32 +137,32 @@ async def broadcast(update: Update, context):
     await log_to_channel(context.bot, f"Broadcast sent by owner: {message[:50]}...")
 
 @owner_only
-async def lock(update: Update, context):
+async def lock(update: Update, context: CallbackContext):
     set_bot_locked(True)
     await update.message.reply_text("🔒 Bot is now locked. Only owner can use commands.")
     await log_to_channel(context.bot, "Bot locked by owner.")
 
 @owner_only
-async def unlock(update: Update, context):
+async def unlock(update: Update, context: CallbackContext):
     set_bot_locked(False)
     await update.message.reply_text("🔓 Bot is now unlocked for everyone.")
     await log_to_channel(context.bot, "Bot unlocked by owner.")
 
 @owner_only
-async def import_db(update: Update, context):
+async def import_db(update: Update, context: CallbackContext):
     await update.message.reply_text("Import not implemented in this version.")
 
 @owner_only
-async def export_db(update: Update, context):
+async def export_db(update: Update, context: CallbackContext):
     await update.message.reply_document(document=open('bot_data.db', 'rb'))
 
 @owner_only
-async def delete_db(update: Update, context):
+async def delete_db(update: Update, context: CallbackContext):
     await update.message.reply_text("⚠️ **This will delete all data.**\nType `/confirm_delete` to proceed.", parse_mode=ParseMode.MARKDOWN)
     context.user_data['confirm_delete'] = True
 
 @owner_only
-async def confirm_delete(update: Update, context):
+async def confirm_delete(update: Update, context: CallbackContext):
     if context.user_data.get('confirm_delete'):
         from database import get_db, init_db
         with get_db() as conn:
@@ -176,7 +175,7 @@ async def confirm_delete(update: Update, context):
     else:
         await update.message.reply_text("No pending delete request.")
 
-async def new_request(update: Update, context):
+async def new_request(update: Update, context: CallbackContext):
     """Handle /new_request command in private chat."""
     if update.effective_chat.type != "private":
         await update.message.reply_text("Please use this command in private chat with me.")
@@ -193,8 +192,7 @@ async def new_request(update: Update, context):
     book_name = ' '.join(context.args)
     user = update.effective_user
     # Forward request to owner
-    owner_id = OWNER_ID
-    if owner_id:
+    if OWNER_ID:
         try:
             text = (
                 f"📌 **New Book Request**\n\n"
@@ -203,7 +201,7 @@ async def new_request(update: Update, context):
                 f"**User ID:** `{user.id}`\n"
                 f"**Link:** [Click here](tg://user?id={user.id})"
             )
-            await context.bot.send_message(chat_id=owner_id, text=text, parse_mode=ParseMode.MARKDOWN)
+            await context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
             await update.message.reply_text(
                 "✅ Your request has been sent to the bot owner. We'll try to add it soon!"
             )
@@ -213,49 +211,18 @@ async def new_request(update: Update, context):
     else:
         await update.message.reply_text("Owner not configured.")
 
-# Group request handler (via #request)
-async def group_request(update: Update, context):
-    """Handle #request in groups."""
-    if update.effective_chat.type == "private":
-        return
-    if update.message and update.message.text:
-        query = update.message.text.strip()
-        if query.lower().startswith("#request"):
-            book_name = query[8:].strip()
-            if book_name:
-                user = update.effective_user
-                # Log to channel
-                await log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
-                # Optionally forward to owner
-                owner_id = OWNER_ID
-                if owner_id:
-                    try:
-                        text = (
-                            f"📌 **Group Book Request**\n\n"
-                            f"**Book:** `{book_name}`\n"
-                            f"**User:** {user.first_name} (@{user.username})\n"
-                            f"**User ID:** `{user.id}`\n"
-                            f"**Group:** {update.effective_chat.title}"
-                        )
-                        await context.bot.send_message(chat_id=owner_id, text=text, parse_mode=ParseMode.MARKDOWN)
-                    except:
-                        pass
-                await update.message.reply_text("📝 Your request has been noted. We'll try to add it if it's non-copyright.")
-            else:
-                await update.message.reply_text("Please specify a book name after #request.")
-
 def get_handlers():
     return [
         CommandHandler("start", start),
         CommandHandler("help", help_command),
-        CommandHandler("stats", stats, filters=filters.ChatType.GROUPS),
-        CommandHandler("users", users, filters=filters.ChatType.GROUPS),
-        CommandHandler("broadcast", broadcast, filters=filters.ChatType.GROUPS),
-        CommandHandler("lock", lock, filters=filters.ChatType.GROUPS),
-        CommandHandler("unlock", unlock, filters=filters.ChatType.GROUPS),
-        CommandHandler("import", import_db, filters=filters.ChatType.GROUPS),
-        CommandHandler("export", export_db, filters=filters.ChatType.GROUPS),
-        CommandHandler("delete_db", delete_db, filters=filters.ChatType.GROUPS),
-        CommandHandler("confirm_delete", confirm_delete, filters=filters.ChatType.GROUPS),
-        CommandHandler("new_request", new_request, filters=filters.ChatType.PRIVATE),
+        CommandHandler("stats", stats, Filters.group),
+        CommandHandler("users", users, Filters.group),
+        CommandHandler("broadcast", broadcast, Filters.group),
+        CommandHandler("lock", lock, Filters.group),
+        CommandHandler("unlock", unlock, Filters.group),
+        CommandHandler("import", import_db, Filters.group),
+        CommandHandler("export", export_db, Filters.group),
+        CommandHandler("delete_db", delete_db, Filters.group),
+        CommandHandler("confirm_delete", confirm_delete, Filters.group),
+        CommandHandler("new_request", new_request, Filters.private),
     ]
