@@ -29,8 +29,22 @@ def channel_post_handler(update: Update, context):
         channel_id=SOURCE_CHANNEL
     )
     if added:
+        # Reply in channel
+        context.bot.send_message(
+            chat_id=SOURCE_CHANNEL,
+            text=f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
+            parse_mode="Markdown",
+            reply_to_message_id=update.channel_post.message_id
+        )
         log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
+    else:
+        # Duplicate – optional reply
+        context.bot.send_message(
+            chat_id=SOURCE_CHANNEL,
+            text="⚠️ This PDF is already in the database.",
+            reply_to_message_id=update.channel_post.message_id
+        )
 
 channel_handler = MessageHandler(
     Filters.chat(chat_id=SOURCE_CHANNEL) & Filters.document,
