@@ -8,27 +8,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 def channel_post_handler(update: Update, context):
-    # Log every channel post for debugging
-    logger.info(f"Received channel post: chat_id={update.channel_post.chat.id}, message_id={update.channel_post.message_id}")
-    
-    # Check if it's from our source channel
-    if not update.channel_post or update.channel_post.chat.id != SOURCE_CHANNEL:
-        logger.warning(f"Ignored channel post from {update.channel_post.chat.id if update.channel_post else 'None'}, expected {SOURCE_CHANNEL}")
+    # Safety check: if no channel_post, ignore
+    if not update.channel_post:
+        return
+
+    logger.info(f"Channel post received: chat_id={update.channel_post.chat.id}, msg_id={update.channel_post.message_id}")
+
+    # Verify it's from our source channel
+    if update.channel_post.chat.id != SOURCE_CHANNEL:
+        logger.warning(f"Post from {update.channel_post.chat.id}, expected {SOURCE_CHANNEL}")
         return
 
     doc = update.channel_post.document
     if not doc:
-        logger.info("Channel post is not a document")
+        logger.info("Not a document")
         return
 
-    # Check file size
     if doc.file_size > MAX_FILE_SIZE:
-        log_to_channel(context.bot,
-            f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
-        logger.info(f"Ignored large file: {doc.file_name}")
+        log_to_channel(context.bot, f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
         return
 
-    # Try to add to database
     added = add_file(
         file_id=doc.file_id,
         file_unique_id=doc.file_unique_id,
@@ -37,20 +36,17 @@ def channel_post_handler(update: Update, context):
         message_id=update.channel_post.message_id,
         channel_id=SOURCE_CHANNEL
     )
-    
+
     if added:
-        # Reply in channel
         context.bot.send_message(
             chat_id=SOURCE_CHANNEL,
             text=f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
             parse_mode=ParseMode.MARKDOWN,
             reply_to_message_id=update.channel_post.message_id
         )
-        log_to_channel(context.bot,
-            f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
+        log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
         logger.info(f"Added new PDF: {doc.file_name}")
     else:
-        # Duplicate
         context.bot.send_message(
             chat_id=SOURCE_CHANNEL,
             text="⚠️ This PDF is already in the database.",
@@ -59,7 +55,6 @@ def channel_post_handler(update: Update, context):
         )
         logger.info(f"Duplicate PDF: {doc.file_name}")
 
-# Use Filters.chat with correct syntax
 channel_handler = MessageHandler(
     Filters.chat(chat_id=SOURCE_CHANNEL) & Filters.document,
     channel_post_handler
