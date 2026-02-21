@@ -1,14 +1,13 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked
-from utils import random_reaction, format_size, check_subscription, log_to_channel, build_info_keyboard
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 
 logger = logging.getLogger(__name__)
 
 def group_message_handler(update: Update, context: CallbackContext):
-    # Reactions not supported in this version – silently skip
     user = update.effective_user
     if not user:
         return
@@ -44,13 +43,13 @@ def group_message_handler(update: Update, context: CallbackContext):
                 if OWNER_ID:
                     try:
                         text = (
-                            f"📌 **Group Book Request**\n\n"
-                            f"**Book:** `{book_name}`\n"
-                            f"**User:** {user.first_name} (@{user.username})\n"
-                            f"**User ID:** `{user.id}`\n"
-                            f"**Group:** {update.effective_chat.title}"
+                            f"📌 <b>Group Book Request</b>\n\n"
+                            f"<b>Book:</b> <code>{book_name}</code>\n"
+                            f"<b>User:</b> {user.first_name} (@{user.username})\n"
+                            f"<b>User ID:</b> <code>{user.id}</code>\n"
+                            f"<b>Group:</b> {update.effective_chat.title}"
                         )
-                        context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
+                        context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.HTML)
                     except:
                         pass
             else:
@@ -93,9 +92,9 @@ def send_results_page(update: Update, context: CallbackContext, page):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        f"📚 Found **{total}** results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+        f"📚 Found <b>{total}</b> results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.HTML
     )
 
 group_message_handler_obj = MessageHandler(
