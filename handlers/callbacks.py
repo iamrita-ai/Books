@@ -49,22 +49,22 @@ def button_callback(update: Update, context: CallbackContext):
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         query.edit_message_text(
-            f"📚 Found **{total}** results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+            f"📚 Found <b>{total}</b> results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
             reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN
+            parse_mode=ParseMode.HTML
         )
 
     elif data == "info":
         text = (
-            "📚 **PDF Library Bot**\n\n"
-            f"👤 **Owner:** @Xioqui_xin\n"
-            f"📢 **Channel:** {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n\n"
-            "🔍 **How to search:**\n"
+            "📚 <b>PDF Library Bot</b>\n\n"
+            f"👤 <b>Owner:</b> @Xioqui_xin\n"
+            f"📢 <b>Channel:</b> {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n\n"
+            "🔍 <b>How to search:</b>\n"
             "In a group, type any part of a book name.\n\n"
-            "📝 **Request a book:**\n"
+            "📝 <b>Request a book:</b>\n"
             "Use #request in group, or /new_request in private.\n\n"
-            "⚠️ **No copyrighted or illegal content** – only self-improvement and public domain books."
+            "⚠️ <b>No copyrighted or illegal content</b> – only self-improvement and public domain books."
         )
-        query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        query.edit_message_text(text, parse_mode=ParseMode.HTML)
 
 callback_handler = CallbackQueryHandler(button_callback)
