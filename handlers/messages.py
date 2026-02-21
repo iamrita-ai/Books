@@ -23,7 +23,6 @@ def reaction_worker():
             if item is None:
                 continue
             chat_id, message_id, msg_type = item
-            # Determine emoji based on message type
             emoji_pools = {
                 "text": ["❤️", "🔥", "👍", "👏", "🎉", "🤔", "😮", "🤝", "💯", "⚡"],
                 "photo": ["❤️", "🔥", "👍", "👏", "😍", "🤩", "✨", "🌟", "🎯", "🏆"],
@@ -32,29 +31,24 @@ def reaction_worker():
                 "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
             }
             emojis = emoji_pools.get(msg_type, emoji_pools["text"])
-            # Send 1-3 reactions with delay between each
             num_reactions = random.randint(1, 3)
             for i in range(num_reactions):
                 emoji = random.choice(emojis)
                 is_big = random.choice([True, False])
                 send_reaction(chat_id, message_id, emoji, is_big)
-                # Delay between reactions from same bot to avoid flood
                 time.sleep(random.uniform(0.5, 1.5))
             reaction_queue.task_done()
-            # Delay between different messages
             time.sleep(random.uniform(1, 3))
         except queue.Empty:
             time.sleep(0.1)
         except Exception as e:
             logger.error(f"Reaction worker error: {e}")
 
-# Start reaction worker thread
 reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def group_message_handler(update: Update, context: CallbackContext):
     """Handle all messages in groups: react, but do NOT search automatically."""
-    # Queue reaction for this message
     if update.message:
         chat_id = update.effective_chat.id
         message_id = update.message.message_id
@@ -112,7 +106,7 @@ def group_message_handler(update: Update, context: CallbackContext):
                         pass
             else:
                 update.message.reply_text("Please specify a book name after #request.")
-            return  # Don't process further
+            return
 
         # No automatic search for other text messages
         # So we do nothing else
