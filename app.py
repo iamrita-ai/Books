@@ -30,7 +30,7 @@ import datetime
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
-# ==================== PID‑based lock ====================
+# ==================== PID-based lock ====================
 LOCK_FILE = '/tmp/bot.lock'
 
 def acquire_lock():
