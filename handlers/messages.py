@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
-from telegram.ext import filters, MessageHandler, ContextTypes
+from telegram.ext import MessageHandler, Filters, CallbackContext
+# ... keep rest
 from database import search_files, update_user, is_bot_locked
 from utils import random_reaction, format_size, check_subscription, log_to_channel, build_info_keyboard, send_animated_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
