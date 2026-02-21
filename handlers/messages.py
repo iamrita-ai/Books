@@ -8,6 +8,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 def group_message_handler(update: Update, context: CallbackContext):
+    # Reactions not supported in this version – we can send a typing action instead
+    try:
+        context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    except:
+        pass
+
     user = update.effective_user
     if not user:
         return
@@ -98,6 +104,6 @@ def send_results_page(update: Update, context: CallbackContext, page):
     )
 
 group_message_handler_obj = MessageHandler(
-    Filters.group & Filters.text,
+    Filters.chat_type.groups & Filters.text,
     group_message_handler
 )
