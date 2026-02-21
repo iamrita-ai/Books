@@ -4,22 +4,22 @@ from database import get_file_by_id
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE
 from utils import format_size, build_info_keyboard
 
-async def button_callback(update: Update, context: CallbackContext):
+def button_callback(update: Update, context: CallbackContext):
     query = update.callback_query
-    await query.answer()
+    query.answer()
 
     data = query.data
     if data.startswith("get_"):
         file_id_num = int(data[4:])
         file_record = get_file_by_id(file_id_num)
         if file_record:
-            await context.bot.send_document(
+            context.bot.send_document(
                 chat_id=query.message.chat_id,
                 document=file_record['file_id'],
                 reply_to_message_id=query.message.message_id
             )
         else:
-            await query.edit_message_text("❌ File not found.")
+            query.edit_message_text("❌ File not found.")
 
     elif data.startswith("page_"):
         page = int(data[5:])
@@ -48,7 +48,7 @@ async def button_callback(update: Update, context: CallbackContext):
             keyboard.append(info_buttons)
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
+        query.edit_message_text(
             f"📚 Found **{total}** results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
             reply_markup=reply_markup,
             parse_mode=ParseMode.MARKDOWN
@@ -65,6 +65,6 @@ async def button_callback(update: Update, context: CallbackContext):
             "Use #request in group, or /new_request in private.\n\n"
             "⚠️ **No copyrighted or illegal content** – only self-improvement and public domain books."
         )
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
 
 callback_handler = CallbackQueryHandler(button_callback)
