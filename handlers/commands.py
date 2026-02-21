@@ -39,54 +39,54 @@ def start(update: Update, context):
 
     if update.effective_chat.type == "private":
         text = (
-            f"👋 **Hello {user.first_name}!**\n\n"
-            f"I'm **{BOT_NAME}**, your personal PDF library assistant.\n\n"
-            "📚 **How to use me:**\n"
-            "• Add me to a **group** where you want to search for books.\n"
+            f"👋 <b>Hello {user.first_name}!</b>\n\n"
+            f"I'm <b>{BOT_NAME}</b>, your personal PDF library assistant.\n\n"
+            "📚 <b>How to use me:</b>\n"
+            "• Add me to a <b>group</b> where you want to search for books.\n"
             "• In the group, simply type any part of a book name, and I'll show you matching results.\n"
             "• Click on a result button to instantly get the PDF.\n\n"
-            "📖 **Book categories:** Self-improvement, Mindset, Hindi literature, English classics, and more.\n\n"
-            "❌ **No copyrighted or illegal content** – only public domain or author-approved books.\n\n"
-            "📝 **Request a new book:**\n"
-            "Use /new_request command followed by the book name (e.g., `/new_request The Art of War`).\n"
+            "📖 <b>Book categories:</b> Self-improvement, Mindset, Hindi literature, English classics, and more.\n\n"
+            "❌ <b>No copyrighted or illegal content</b> – only public domain or author-approved books.\n\n"
+            "📝 <b>Request a new book:</b>\n"
+            "Use /new_request command followed by the book name (e.g., <code>/new_request The Art of War</code>).\n"
             "Your request will be forwarded to the bot owner.\n\n"
-            f"📢 **Join our channel:** {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n"
-            "👤 **Owner:** @Xioqui_xin"
+            f"📢 <b>Join our channel:</b> {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n"
+            "👤 <b>Owner:</b> @Xioqui_xin"
         )
     else:
         text = (
-            f"👋 **Hello {user.first_name}!**\n\n"
-            f"I'm **{BOT_NAME}**, here to help you find PDF books.\n\n"
-            "🔍 **To search:** Just type any part of a book name.\n"
-            "📌 Example: `mindset` or `godan`\n\n"
-            "❌ **No copyrighted content** – only public domain books.\n\n"
-            "📝 **Want a new book?** Use #request followed by the book name, e.g., `#request The Art of War`\n"
+            f"👋 <b>Hello {user.first_name}!</b>\n\n"
+            f"I'm <b>{BOT_NAME}</b>, here to help you find PDF books.\n\n"
+            "🔍 <b>To search:</b> Just type any part of a book name.\n"
+            "📌 Example: <code>mindset</code> or <code>godan</code>\n\n"
+            "❌ <b>No copyrighted content</b> – only public domain books.\n\n"
+            "📝 <b>Want a new book?</b> Use #request followed by the book name, e.g., <code>#request The Art of War</code>\n"
             "Your request will be noted."
         )
-    update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 def help_command(update: Update, context):
     text = (
-        "📚 **Help & Commands**\n\n"
-        "**Group commands:**\n"
-        "• `/start` – Welcome message\n"
-        "• `/help` – This help\n"
-        "• `/stats` – Bot statistics (group only)\n"
-        "• `#request <book>` – Request a new book\n\n"
-        "**Private chat commands:**\n"
-        "• `/new_request <book>` – Request a book (owner will be notified)\n\n"
-        "**Admin commands (owner only):**\n"
-        "• `/users` – Show total users\n"
-        "• `/broadcast <msg>` – Send message to all users\n"
-        "• `/lock` – Lock the bot (only owner can use)\n"
-        "• `/unlock` – Unlock the bot\n"
-        "• `/import` – Import database (placeholder)\n"
-        "• `/export` – Export database\n"
-        "• `/delete_db` – Delete all data (requires confirmation)\n\n"
-        "📖 **Available books:** Self-improvement, Hindi literature, English classics, etc.\n"
-        "❌ **No pirated content.**"
+        "📚 <b>Help & Commands</b>\n\n"
+        "<b>Group commands:</b>\n"
+        "• <code>/start</code> – Welcome message\n"
+        "• <code>/help</code> – This help\n"
+        "• <code>/stats</code> – Bot statistics (group only)\n"
+        "• <code>#request &lt;book&gt;</code> – Request a new book\n\n"
+        "<b>Private chat commands:</b>\n"
+        "• <code>/new_request &lt;book&gt;</code> – Request a book (owner will be notified)\n\n"
+        "<b>Admin commands (owner only):</b>\n"
+        "• <code>/users</code> – Show total users\n"
+        "• <code>/broadcast &lt;msg&gt;</code> – Send message to all users\n"
+        "• <code>/lock</code> – Lock the bot (only owner can use)\n"
+        "• <code>/unlock</code> – Unlock the bot\n"
+        "• <code>/import</code> – Import database (placeholder)\n"
+        "• <code>/export</code> – Export database\n"
+        "• <code>/delete_db</code> – Delete all data (requires confirmation)\n\n"
+        "📖 <b>Available books:</b> Self-improvement, Hindi literature, English classics, etc.\n"
+        "❌ <b>No pirated content.</b>"
     )
-    update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 def stats(update: Update, context):
     if not _check_and_send_force_sub(update, context):
@@ -100,29 +100,29 @@ def stats(update: Update, context):
     locked = "🔒 Locked" if is_bot_locked() else "🔓 Unlocked"
 
     text = (
-        f"📊 **Bot Statistics**\n\n"
-        f"⏱️ **Uptime:** {uptime}\n"
-        f"📚 **Total PDFs:** {total_files}\n"
-        f"👥 **Total Users:** {total_users}\n"
-        f"💾 **Database size:** {db_size:.2f} KB\n"
-        f"🔐 **Status:** {locked}\n"
+        f"📊 <b>Bot Statistics</b>\n\n"
+        f"⏱️ <b>Uptime:</b> {uptime}\n"
+        f"📚 <b>Total PDFs:</b> {total_files}\n"
+        f"👥 <b>Total Users:</b> {total_users}\n"
+        f"💾 <b>Database size:</b> {db_size:.2f} KB\n"
+        f"🔐 <b>Status:</b> {locked}\n"
     )
     if mem:
-        text += f"🧠 **Memory:** {mem:.2f} MB\n"
+        text += f"🧠 <b>Memory:</b> {mem:.2f} MB\n"
     if disk:
-        text += f"📀 **Disk used:** {disk:.2f} MB\n"
+        text += f"📀 <b>Disk used:</b> {disk:.2f} MB\n"
 
-    update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 @owner_only
 def users(update: Update, context):
     count = get_total_users()
-    update.message.reply_text(f"👥 **Total users:** {count}", parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(f"👥 <b>Total users:</b> {count}", parse_mode=ParseMode.HTML)
 
 @owner_only
 def broadcast(update: Update, context):
     if not context.args:
-        update.message.reply_text("Usage: `/broadcast <message>`", parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text("Usage: <code>/broadcast &lt;message&gt;</code>", parse_mode=ParseMode.HTML)
         return
     message = ' '.join(context.args)
     users = get_all_users()
@@ -158,7 +158,7 @@ def export_db(update: Update, context):
 
 @owner_only
 def delete_db(update: Update, context):
-    update.message.reply_text("⚠️ **This will delete all data.**\nType `/confirm_delete` to proceed.", parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text("⚠️ <b>This will delete all data.</b>\nType <code>/confirm_delete</code> to proceed.", parse_mode=ParseMode.HTML)
     context.user_data['confirm_delete'] = True
 
 @owner_only
@@ -184,8 +184,8 @@ def new_request(update: Update, context):
     if not context.args:
         update.message.reply_text(
             "📝 Please provide a book name.\n"
-            "Example: `/new_request The Art of War`",
-            parse_mode=ParseMode.MARKDOWN
+            "Example: <code>/new_request The Art of War</code>",
+            parse_mode=ParseMode.HTML
         )
         return
 
@@ -194,13 +194,13 @@ def new_request(update: Update, context):
     if OWNER_ID:
         try:
             text = (
-                f"📌 **New Book Request**\n\n"
-                f"**Book:** `{book_name}`\n"
-                f"**User:** {user.first_name} (@{user.username})\n"
-                f"**User ID:** `{user.id}`\n"
-                f"**Link:** [Click here](tg://user?id={user.id})"
+                f"📌 <b>New Book Request</b>\n\n"
+                f"<b>Book:</b> <code>{book_name}</code>\n"
+                f"<b>User:</b> {user.first_name} (@{user.username})\n"
+                f"<b>User ID:</b> <code>{user.id}</code>\n"
+                f"<b>Link:</b> <a href=\"tg://user?id={user.id}\">Click here</a>"
             )
-            context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.MARKDOWN)
+            context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.HTML)
             update.message.reply_text(
                 "✅ Your request has been sent to the bot owner. We'll try to add it soon!"
             )
