@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked
-from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, random_reaction
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 import queue
@@ -11,16 +11,17 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Reaction queue and processing thread (similar to user's reaction bot)
+# Reaction queue
 reaction_queue = queue.Queue()
 reaction_running = True
 
 def reaction_worker():
-    """Worker thread to process reactions from queue."""
     while reaction_running:
         try:
-            chat_id, message_id, msg_type = reaction_queue.get(timeout=1)
-            # Determine emoji based on message type
+            item = reaction_queue.get(timeout=1)
+            if item is None:
+                continue
+            chat_id, message_id, msg_type = item
             emoji_pools = {
                 "text": ["❤️", "🔥", "👍", "👏", "🎉", "🤔", "😮", "🤝", "💯", "⚡"],
                 "photo": ["❤️", "🔥", "👍", "👏", "😍", "🤩", "✨", "🌟", "🎯", "🏆"],
@@ -29,7 +30,6 @@ def reaction_worker():
                 "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
             }
             emojis = emoji_pools.get(msg_type, emoji_pools["text"])
-            # Send 1-3 reactions with slight delay
             num_reactions = random.randint(1, 3)
             for i in range(num_reactions):
                 emoji = random.choice(emojis)
@@ -42,25 +42,24 @@ def reaction_worker():
         except Exception as e:
             logger.error(f"Reaction worker error: {e}")
 
-# Start the reaction worker thread
 reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def group_message_handler(update: Update, context: CallbackContext):
-    # Add message to reaction queue
-    chat_id = update.effective_chat.id
-    message_id = update.message.message_id
-    # Determine message type
-    msg_type = "text"
-    if update.message.photo:
-        msg_type = "photo"
-    elif update.message.video:
-        msg_type = "video"
-    elif update.message.sticker:
-        msg_type = "sticker"
-    elif update.message.document:
-        msg_type = "document"
-    reaction_queue.put((chat_id, message_id, msg_type))
+    # Queue reaction for this message
+    if update.message:
+        chat_id = update.effective_chat.id
+        message_id = update.message.message_id
+        msg_type = "text"
+        if update.message.photo:
+            msg_type = "photo"
+        elif update.message.video:
+            msg_type = "video"
+        elif update.message.sticker:
+            msg_type = "sticker"
+        elif update.message.document:
+            msg_type = "document"
+        reaction_queue.put((chat_id, message_id, msg_type))
 
     user = update.effective_user
     if not user:
