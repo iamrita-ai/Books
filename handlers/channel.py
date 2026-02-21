@@ -32,5 +32,9 @@ async def channel_post_handler(update: Update, context):
         await log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
 
-# ✅ FIX: Explicitly use chat_id parameter
-channel_handler = MessageHandler(filters.Chat(chat_id=SOURCE_CHANNEL) & filters.Document.ALL, channel_post_handler)
+# ✅ FIX: Use correct syntax for PTB v13.15 – filters.Chat expects (chat_id, chat_type)
+# chat_type can be 'group', 'supergroup', 'channel', or None for any
+channel_handler = MessageHandler(
+    filters.Chat(chat_id=SOURCE_CHANNEL, chat_type=None) & filters.Document.ALL, 
+    channel_post_handler
+)
