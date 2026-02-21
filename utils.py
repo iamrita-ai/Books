@@ -1,6 +1,5 @@
 import re
 import random
-import asyncio
 from datetime import datetime
 import psutil
 from config import FORCE_SUB_CHANNEL, LOG_CHANNEL
@@ -19,32 +18,11 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} TB"
 
 def random_reaction() -> str:
-    """Return a random emoji for reactions."""
     emojis = [
         "👍", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🎉",
         "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"
     ]
     return random.choice(emojis)
-
-async def send_animated_reaction(update, context):
-    """Send an animated reaction to a message."""
-    try:
-        # For PTB v13.15, reactions might not be directly supported.
-        # We'll try the new API if available, but gracefully fail if not.
-        if hasattr(update.message, 'react'):
-            emoji = random_reaction()
-            await update.message.react([emoji])
-        else:
-            # Alternative: Send a reaction via bot API directly
-            # This is a workaround for older versions
-            await context.bot.send_chat_action(
-                chat_id=update.effective_chat.id,
-                action="typing"
-            )
-            # Can't send actual reactions in old version, so just log
-            logger.debug(f"Reaction {random_reaction()} would be sent (not supported in this PTB version)")
-    except Exception as e:
-        logger.debug(f"Reaction failed: {e}")
 
 def check_subscription(user_id, bot):
     if not FORCE_SUB_CHANNEL:
@@ -83,16 +61,19 @@ def get_disk_usage():
         return None
 
 def build_info_keyboard():
+    """Build the info row with owner contact and channel."""
     from telegram import InlineKeyboardButton
     from config import OWNER_ID, OWNER_USERNAME, FORCE_SUB_CHANNEL
     buttons = []
     
+    # Owner button
     if OWNER_USERNAME:
         owner_display = OWNER_USERNAME if OWNER_USERNAME.startswith('@') else f"@{OWNER_USERNAME}"
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{owner_display[1:]}"))
     elif OWNER_ID:
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
     
+    # Channel button
     if FORCE_SUB_CHANNEL:
         channel_display = FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL.startswith('@') else f"@{FORCE_SUB_CHANNEL}"
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
