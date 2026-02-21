@@ -3,10 +3,10 @@ import threading
 import os
 import sys
 import time
-import fcntl  # for file locking (Linux only, works on Render)
+import fcntl
+import atexit
 from flask import Flask, jsonify
 
-# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -27,50 +27,63 @@ from handlers import channel_handler, get_command_handlers, group_message_handle
 from config import BOT_NAME
 import datetime
 
-# Initialize database
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
-# Global flag to control bot thread
-bot_running = True
-bot_thread = None
-updater_instance = None
-
-# File lock path (must be in a writable location)
+# ==================== PID‑based lock ====================
 LOCK_FILE = '/tmp/bot.lock'
 
 def acquire_lock():
-    """Try to acquire a file lock. Returns True if successful, False otherwise."""
+    """Try to acquire a lock by writing our PID into a file with flock."""
     try:
         global lock_fp
         lock_fp = open(LOCK_FILE, 'w')
         fcntl.flock(lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_fp.write(str(os.getpid()))
+        lock_fp.flush()
         return True
     except (IOError, OSError):
-        return False
+        # Lock already held – check if the process that holds it is still alive
+        try:
+            with open(LOCK_FILE, 'r') as f:
+                old_pid = int(f.read().strip())
+            os.kill(old_pid, 0)  # Check if process exists
+            # Process exists – lock is valid
+            return False
+        except (ProcessLookupError, ValueError, FileNotFoundError, IOError):
+            # Stale lock – remove it and try again
+            try:
+                os.remove(LOCK_FILE)
+            except:
+                pass
+            return acquire_lock()  # Retry
 
 def release_lock():
-    """Release the file lock."""
+    """Release the lock."""
     try:
         fcntl.flock(lock_fp, fcntl.LOCK_UN)
         lock_fp.close()
+        os.remove(LOCK_FILE)
     except:
         pass
 
-def run_bot():
-    """Run the bot in a background thread with automatic recovery."""
-    global updater_instance
-    from telegram.ext import Updater
-    from telegram.error import Conflict, NetworkError, TelegramError
+atexit.register(release_lock)
 
-    # Try to acquire the lock – if not, this thread exits silently.
+# ==================== Bot Thread ====================
+bot_thread = None
+updater_instance = None
+bot_running = True
+
+def run_bot():
+    global updater_instance
     if not acquire_lock():
         logger.warning("Another bot instance is already running. Exiting this thread.")
         return
 
     logger.info("🚀 Starting bot thread (lock acquired).")
-    
-    # Outer loop for auto‑restart
+    from telegram.ext import Updater
+    from telegram.error import Conflict, NetworkError, TelegramError
+
     while bot_running:
         try:
             updater = Updater(BOT_TOKEN, use_context=True)
@@ -84,46 +97,39 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # Error handler to log and possibly restart
             def error_callback(update, context):
                 logger.error(f"Update {update} caused error {context.error}")
                 if isinstance(context.error, Conflict):
-                    logger.critical("Conflict detected – updater will stop.")
-                    # Force stop the updater (it will be restarted by the outer loop)
+                    logger.critical("Conflict detected – stopping updater (will restart in 30s).")
                     updater.stop()
 
             dp.add_error_handler(error_callback)
 
-            # Start polling with recommended settings
+            # Start polling with safe settings
             logger.info("Starting polling...")
             updater.start_polling(
                 poll_interval=1.0,
                 timeout=30,
-                drop_pending_updates=True,  # replaces deprecated 'clean'
+                drop_pending_updates=True,
                 bootstrap_retries=3
             )
-            logger.info("✅ Bot is polling and ready to receive updates!")
+            logger.info("✅ Bot is polling and ready!")
 
-            # Keep thread alive; updater runs in its own threads.
+            # Keep thread alive
             while bot_running:
                 time.sleep(10)
                 logger.debug("Bot thread heartbeat - lock held")
 
-            # If we exit the loop, stop the updater and release lock
             updater.stop()
             break
 
         except Conflict as e:
             logger.error(f"Conflict on startup: {e}. Waiting 30 seconds...")
             time.sleep(30)
-        except NetworkError as e:
-            logger.error(f"Network error: {e}. Retrying in 15 seconds...")
-            time.sleep(15)
         except Exception as e:
-            logger.exception(f"Unexpected error in bot thread: {e}")
+            logger.exception(f"Unexpected error: {e}")
             time.sleep(10)
 
-    # Release the lock when the thread exits
     release_lock()
     logger.info("Bot thread exiting, lock released.")
 
@@ -133,19 +139,16 @@ def start_bot_thread():
     bot_thread.start()
     logger.info(f"Bot thread started with ID: {bot_thread.ident}")
 
-# Start the bot thread
 start_bot_thread()
 
-# ==================== Flask Web Server ====================
+# ==================== Flask ====================
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint with detailed status."""
     thread_alive = bot_thread.is_alive() if bot_thread else False
     return jsonify({
         "status": "healthy" if thread_alive else "degraded",
         "bot_thread_alive": thread_alive,
-        "uptime_seconds": (datetime.datetime.now() - BOT_START_TIME).seconds,
-        "updater_running": updater_instance is not None
+        "uptime_seconds": (datetime.datetime.now() - BOT_START_TIME).seconds
     }), 200
 
 @app.route('/', methods=['GET'])
@@ -154,5 +157,4 @@ def index():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    logger.info(f"Starting Flask on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
