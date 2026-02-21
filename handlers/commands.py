@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
-from telegram.ext import CommandHandler, ContextTypes, filters
+from telegram.ext import CommandHandler, CallbackContext, Filters
+# ... rest remains same, but change all `ContextTypes.DEFAULT_TYPE` to `CallbackContext`
 from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
                       set_bot_locked, get_all_users, update_user)
