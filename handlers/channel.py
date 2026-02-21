@@ -1,5 +1,5 @@
 from telegram.ext import MessageHandler, Filters
-from telegram import Update
+from telegram import Update, ParseMode
 from config import SOURCE_CHANNEL, MAX_FILE_SIZE, LOG_CHANNEL
 from database import add_file
 from utils import log_to_channel, format_size
@@ -33,16 +33,17 @@ def channel_post_handler(update: Update, context):
         context.bot.send_message(
             chat_id=SOURCE_CHANNEL,
             text=f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
-            parse_mode="Markdown",
+            parse_mode=ParseMode.MARKDOWN,
             reply_to_message_id=update.channel_post.message_id
         )
         log_to_channel(context.bot,
             f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
     else:
-        # Duplicate – optional reply
+        # Duplicate
         context.bot.send_message(
             chat_id=SOURCE_CHANNEL,
             text="⚠️ This PDF is already in the database.",
+            parse_mode=ParseMode.MARKDOWN,
             reply_to_message_id=update.channel_post.message_id
         )
 
