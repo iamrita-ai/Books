@@ -1,16 +1,19 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
-# ... keep rest
 from database import search_files, update_user, is_bot_locked
-from utils import random_reaction, format_size, check_subscription, log_to_channel, build_info_keyboard, send_animated_reaction
+from utils import random_reaction, format_size, check_subscription, log_to_channel, build_info_keyboard
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 
 logger = logging.getLogger(__name__)
 
-async def group_message_handler(update: Update, context):
-    # Send animated reaction to every message
-    await send_animated_reaction(update, context)
+async def group_message_handler(update: Update, context: CallbackContext):
+    # Try to send a reaction (will silently fail if not supported)
+    try:
+        # In PTB v13.15, reactions are not directly supported, so we skip
+        pass
+    except Exception:
+        pass
 
     user = update.effective_user
     if not user:
@@ -72,7 +75,7 @@ async def group_message_handler(update: Update, context):
         context.user_data['current_page'] = 0
         await send_results_page(update, context, 0)
 
-async def send_results_page(update, context, page):
+async def send_results_page(update: Update, context: CallbackContext, page):
     results = context.user_data.get('search_results', [])
     total = len(results)
     start = page * RESULTS_PER_PAGE
@@ -106,6 +109,6 @@ async def send_results_page(update, context, page):
     )
 
 group_message_handler_obj = MessageHandler(
-    filters.ChatType.GROUPS & filters.ALL,
+    Filters.group & Filters.all,
     group_message_handler
 )
