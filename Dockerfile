@@ -6,11 +6,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the rest of the application
 COPY . .
 
 # Expose the port Render expects
 EXPOSE 10000
 
-# Run with gunicorn
+# Run the application with gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
