@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CallbackQueryHandler, CallbackContext
 from database import get_file_by_id
-from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE
+from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE, REQUEST_GROUP
 from utils import format_size, build_info_keyboard
 
 def button_callback(update: Update, context: CallbackContext):
@@ -58,13 +58,15 @@ def button_callback(update: Update, context: CallbackContext):
         text = (
             "📚 <b>PDF Library Bot</b>\n\n"
             f"👤 <b>Owner:</b> @Xioqui_xin\n"
-            f"📢 <b>Channel:</b> {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n\n"
-            "🔍 <b>How to search:</b>\n"
-            "In a group, type any part of a book name.\n\n"
-            "📝 <b>Request a book:</b>\n"
-            "Use #request in group, or /new_request in private.\n\n"
-            "⚠️ <b>No copyrighted or illegal content</b> – only self-improvement and public domain books."
+            f"📢 <b>Channel:</b> {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n"
         )
+        if REQUEST_GROUP:
+            text += f"📝 <b>Request Group:</b> {REQUEST_GROUP}\n"
+        text += "\n🔍 <b>How to search:</b>\n"
+        text += "In a group, type any part of a book name.\n\n"
+        text += "📝 <b>Request a book:</b>\n"
+        text += "Use #request in group, or /new_request in private.\n\n"
+        text += "⚠️ <b>No copyrighted or illegal content</b> – only self-improvement and public domain books."
         query.edit_message_text(text, parse_mode=ParseMode.HTML)
 
 callback_handler = CallbackQueryHandler(button_callback)
