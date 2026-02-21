@@ -1,9 +1,9 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CommandHandler, Filters, CallbackContext
-from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL
+from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
                       set_bot_locked, get_all_users, update_user)
-from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel, build_info_keyboard
+from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel, build_start_keyboard, build_info_keyboard
 import datetime
 import logging
 
@@ -50,9 +50,10 @@ def start(update: Update, context):
             "📝 <b>Request a new book:</b>\n"
             "Use /new_request command followed by the book name (e.g., <code>/new_request The Art of War</code>).\n"
             "Your request will be forwarded to the bot owner.\n\n"
-            f"📢 <b>Join our channel:</b> {FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL else 'Not set'}\n"
-            "👤 <b>Owner:</b> @Xioqui_xin"
         )
+        # Build keyboard
+        keyboard_rows = build_start_keyboard()
+        reply_markup = InlineKeyboardMarkup(keyboard_rows)
     else:
         text = (
             f"👋 <b>Hello {user.first_name}!</b>\n\n"
@@ -63,7 +64,9 @@ def start(update: Update, context):
             "📝 <b>Want a new book?</b> Use #request followed by the book name, e.g., <code>#request The Art of War</code>\n"
             "Your request will be noted."
         )
-    update.message.reply_text(text, parse_mode=ParseMode.HTML)
+        reply_markup = None
+
+    update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
 def help_command(update: Update, context):
     text = (
