@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMo
 from telegram.ext import CommandHandler, Filters, CallbackContext
 from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
-                      set_bot_locked, get_all_users, update_user)
+                      set_bot_locked, get_all_users, update_user, search_files)
 from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel, build_start_keyboard, build_info_keyboard, format_size
 import datetime
 import logging
@@ -43,7 +43,11 @@ def start(update: Update, context):
             f"I'm <b>{BOT_NAME}</b>, your personal PDF library assistant.\n\n"
             "📚 <b>How to use me:</b>\n"
             "• Add me to a <b>group</b> where you want to search for books.\n"
-            "• In the group, use <code>/book &lt;name&gt;</code> to search for books.\n"
+            "• In the group, you can:\n"
+            "   - Type any part of a book name (e.g., `mindset`)\n"
+            "   - Use <code>#book mindset</code> to search\n"
+            "   - Use <code>#request book name</code> to request a book\n"
+            "   - Use <code>/book mindset</code> command (if preferred)\n"
             "• Click on a result button to instantly get the PDF.\n\n"
             "📖 <b>Book categories:</b> Self-improvement, Mindset, Hindi literature, English classics, and more.\n\n"
             "❌ <b>No copyrighted or illegal content</b> – only public domain or author-approved books.\n\n"
@@ -57,11 +61,13 @@ def start(update: Update, context):
         text = (
             f"👋 <b>Hello {user.first_name}!</b>\n\n"
             f"I'm <b>{BOT_NAME}</b>, here to help you find PDF books.\n\n"
-            "🔍 <b>To search:</b> Use <code>/book &lt;name&gt;</code>.\n"
-            "📌 Example: <code>/book mindset</code> or <code>/book godan</code>\n\n"
-            "❌ <b>No copyrighted content</b> – only public domain books.\n\n"
-            "📝 <b>Want a new book?</b> Use #request followed by the book name, e.g., <code>#request The Art of War</code>\n"
-            "Your request will be noted."
+            "🔍 <b>To search:</b>\n"
+            "• Type any part of a book name (e.g., `mindset`)\n"
+            "• Use <code>#book mindset</code>\n"
+            "• Use <code>/book mindset</code> command\n\n"
+            "📝 <b>To request a book:</b>\n"
+            "Use <code>#request book name</code>\n\n"
+            "❌ <b>No copyrighted content</b> – only public domain books."
         )
         reply_markup = None
 
@@ -74,10 +80,11 @@ def help_command(update: Update, context):
         "• <code>/start</code> – Welcome message\n"
         "• <code>/help</code> – This help\n"
         "• <code>/stats</code> – Bot statistics\n"
-        "• <code>/book &lt;name&gt;</code> – Search for books\n"
-        "• <code>#request &lt;book&gt;</code> – Request a new book\n\n"
+        "• <code>/book &lt;name&gt;</code> – Search for a book\n"
+        "• <code>#book &lt;name&gt;</code> – Alternative search tag\n"
+        "• <code>#request &lt;name&gt;</code> – Request a book\n\n"
         "<b>Private chat commands:</b>\n"
-        "• <code>/new_request &lt;book&gt;</code> – Request a book (owner will be notified)\n\n"
+        "• <code>/new_request &lt;name&gt;</code> – Request a book (owner notified)\n\n"
         "<b>Admin commands (owner only):</b>\n"
         "• <code>/users</code> – Show total users\n"
         "• <code>/broadcast &lt;msg&gt;</code> – Send message to all users\n"
@@ -85,8 +92,7 @@ def help_command(update: Update, context):
         "• <code>/unlock</code> – Unlock the bot\n"
         "• <code>/import</code> – Import database (placeholder)\n"
         "• <code>/export</code> – Export database\n"
-        "• <code>/delete_db</code> – Delete all data\n"
-        "• <code>/confirm_delete</code> – Confirm deletion\n\n"
+        "• <code>/delete_db</code> – Delete all data\n\n"
         "📖 <b>Available books:</b> Self-improvement, Hindi literature, English classics, etc.\n"
         "❌ <b>No pirated content.</b>"
     )
@@ -117,6 +123,55 @@ def stats(update: Update, context):
         text += f"📀 <b>Disk used:</b> {disk:.2f} MB\n"
 
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+def book_search(update: Update, context):
+    if not context.args:
+        update.message.reply_text("Please provide a book name. Example: /book mindset")
+        return
+    query = ' '.join(context.args)
+    results = search_files(query)
+    if not results:
+        update.message.reply_text("❌ No books found.")
+        return
+    context.user_data['search_results'] = results
+    context.user_data['current_page'] = 0
+    send_results_page(update, context, 0)
+
+def send_results_page(update: Update, context: CallbackContext, page):
+    # This function is also used by message handler; we define it here or import? Better to define in a shared location.
+    # To avoid duplication, we'll keep it in commands and also use it from messages if needed.
+    # But since it's used in both places, we can define it in a separate module or just duplicate.
+    # We'll duplicate for simplicity.
+    from utils import build_info_keyboard, format_size
+    results = context.user_data.get('search_results', [])
+    total = len(results)
+    start = page * RESULTS_PER_PAGE
+    end = min(start + RESULTS_PER_PAGE, total)
+    page_results = results[start:end]
+
+    keyboard = []
+    for res in page_results:
+        btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
+    if end < total:
+        nav_buttons.append(InlineKeyboardButton("Next ▶️", callback_data=f"page_{page+1}"))
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+
+    info_buttons = build_info_keyboard()
+    if info_buttons:
+        keyboard.append(info_buttons)
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(
+        f"📚 Found <b>{total}</b> results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
 
 @owner_only
 def users(update: Update, context):
@@ -180,7 +235,6 @@ def confirm_delete(update: Update, context):
         update.message.reply_text("No pending delete request.")
 
 def new_request(update: Update, context):
-    """Handle /new_request command in private chat."""
     if update.effective_chat.type != "private":
         update.message.reply_text("Please use this command in private chat with me.")
         return
@@ -213,80 +267,6 @@ def new_request(update: Update, context):
             update.message.reply_text("❌ Sorry, could not send your request. Please try later.")
     else:
         update.message.reply_text("Owner not configured.")
-
-def book_search(update: Update, context):
-    """Handle /book command to search for books."""
-    user = update.effective_user
-    update_user(user.id, user.first_name, user.username)
-
-    # Lock check
-    if is_bot_locked() and user.id != OWNER_ID:
-        update.message.reply_text("🔒 Bot is currently locked.")
-        return
-
-    # Force subscribe check
-    if FORCE_SUB_CHANNEL and not check_subscription(user.id, context.bot):
-        keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
-        update.message.reply_text(
-            "⚠️ You must join our channel to search for books.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        return
-
-    if not context.args:
-        update.message.reply_text(
-            "📚 Please provide a book name.\n"
-            "Example: <code>/book The Art of Being Alone</code>",
-            parse_mode=ParseMode.HTML
-        )
-        return
-
-    query = ' '.join(context.args).strip()
-    if not query:
-        update.message.reply_text("Please enter a valid book name.")
-        return
-
-    from database import search_files
-    results = search_files(query)
-    if not results:
-        update.message.reply_text("❌ No books found matching your query.")
-        log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
-        return
-
-    context.user_data['search_results'] = results
-    context.user_data['current_page'] = 0
-    send_results_page(update, context, 0)
-
-def send_results_page(update, context, page):
-    results = context.user_data.get('search_results', [])
-    total = len(results)
-    start = page * RESULTS_PER_PAGE
-    end = min(start + RESULTS_PER_PAGE, total)
-    page_results = results[start:end]
-
-    keyboard = []
-    for res in page_results:
-        btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
-        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
-
-    nav_buttons = []
-    if page > 0:
-        nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
-    if end < total:
-        nav_buttons.append(InlineKeyboardButton("Next ▶️", callback_data=f"page_{page+1}"))
-    if nav_buttons:
-        keyboard.append(nav_buttons)
-
-    info_buttons = build_info_keyboard()
-    if info_buttons:
-        keyboard.append(info_buttons)
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(
-        f"📚 Found <b>{total}</b> results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
-    )
 
 def get_handlers():
     return [
