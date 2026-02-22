@@ -34,7 +34,6 @@ from handlers import (
 from config import BOT_NAME
 import datetime
 
-# Initialize database
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
@@ -54,10 +53,9 @@ def acquire_lock():
         try:
             with open(LOCK_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
-            os.kill(old_pid, 0)  # Check if process exists
+            os.kill(old_pid, 0)
             return False
         except (ProcessLookupError, ValueError, FileNotFoundError, IOError):
-            # Stale lock – remove it and try again
             try:
                 os.remove(LOCK_FILE)
             except:
@@ -97,7 +95,7 @@ def run_bot():
 
             # Add all handlers
             dp.add_handler(channel_handler)
-            dp.add_handler(source_group_handler_obj)          # Source group PDF saver
+            dp.add_handler(source_group_handler_obj)          # Source group PDF saver (multiple)
             for handler in get_command_handlers():
                 dp.add_handler(handler)
             dp.add_handler(group_message_handler_obj)         # Reactions and #book/#request
@@ -106,20 +104,20 @@ def run_bot():
             # ✅ ULTRA SAFE ERROR CALLBACK
             def error_callback(update, context):
                 try:
+                    # Never assume update is not None
                     if update is not None:
-                        # Safely get update_id without assuming structure
                         update_id = update.update_id if hasattr(update, 'update_id') else 'N/A'
                         logger.error(f"Update {update_id} caused error: {context.error}")
                     else:
                         logger.error(f"Error without update: {context.error}")
                 except Exception as e:
-                    # If even this fails, log the raw error
-                    logger.error(f"Error in error callback: {e} - original error: {context.error}")
+                    # Fallback if even logging fails
+                    logger.error(f"Fatal error in error callback: {e}")
                 
-                # Do NOT stop updater for generic errors
+                # Only stop for Conflict error
                 if isinstance(context.error, Conflict):
-                    logger.critical("Conflict detected – will restart in 30s")
-                    updater.stop()  # This will trigger outer loop restart
+                    logger.critical("Conflict detected – restarting updater in 30s")
+                    updater.stop()
 
             dp.add_error_handler(error_callback)
 
