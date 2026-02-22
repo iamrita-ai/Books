@@ -138,9 +138,12 @@ def book_search(update: Update, context):
     send_results_page(update, context, 0)
 
 def send_results_page(update: Update, context: CallbackContext, page):
-    # This function is also used in messages.py; ensure it's defined or imported.
-    # For simplicity, we define it here and will also be used by commands.
+    from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
+    if not results:
+        update.message.reply_text("❌ No results found.")
+        return
+
     total = len(results)
     start = page * RESULTS_PER_PAGE
     end = min(start + RESULTS_PER_PAGE, total)
@@ -187,7 +190,7 @@ def broadcast(update: Update, context):
         try:
             context.bot.send_message(uid, message)
             success += 1
-            time.sleep(0.05)  # avoid flood
+            time.sleep(0.05)
         except Exception as e:
             logger.error(f"Broadcast to {uid} failed: {e}")
     update.message.reply_text(f"📢 Broadcast sent to {success}/{len(users)} users.")
