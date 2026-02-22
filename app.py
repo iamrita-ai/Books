@@ -93,9 +93,10 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # ✅ Correct error callback for PTB v13.15: (bot, update, error)
-            def error_callback(bot, update, error):
+            # ✅ Correct error callback for PTB v13.15: (update, context)
+            def error_callback(update, context):
                 try:
+                    error = context.error
                     if update is not None:
                         update_id = update.update_id if hasattr(update, 'update_id') else 'N/A'
                         logger.error(f"Update {update_id} caused error: {error}")
