@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked
-from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, random_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 import queue
@@ -11,7 +11,7 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Reaction queue and worker
+# Reaction queue and worker (same as before)
 reaction_queue = queue.Queue()
 reaction_running = True
 
@@ -27,12 +27,14 @@ def reaction_worker():
                 "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
             }
             emojis = emoji_pools.get(msg_type, emoji_pools["text"])
+            # Send 1-3 reactions with at least one big reaction
             num_reactions = random.randint(1, 3)
             for i in range(num_reactions):
                 emoji = random.choice(emojis)
-                is_big = random.choice([True, False])
+                # First reaction is often big
+                is_big = (i == 0) or random.choice([True, False])
                 send_reaction(chat_id, message_id, emoji, is_big)
-                time.sleep(random.uniform(0.2, 0.5))
+                time.sleep(random.uniform(0.3, 0.7))
             reaction_queue.task_done()
         except queue.Empty:
             time.sleep(0.1)
@@ -43,7 +45,7 @@ reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def group_message_handler(update: Update, context: CallbackContext):
-    # Queue reaction
+    # Queue reaction for every message
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
     msg_type = "text"
@@ -80,12 +82,12 @@ def group_message_handler(update: Update, context: CallbackContext):
     if update.message.text:
         text = update.message.text.strip()
 
-        # Ignore if starts with '/' (commands)
-        if text.startswith('/'):
+        # Ignore plain text (no search)
+        if not (text.startswith('/book') or text.startswith('#book') or text.startswith('#request')):
             return
 
         # Handle #request
-        if text.lower().startswith("#request"):
+        if text.lower().startswith('#request'):
             book_name = text[8:].strip()
             if book_name:
                 update.message.reply_text(
@@ -108,17 +110,18 @@ def group_message_handler(update: Update, context: CallbackContext):
                 update.message.reply_text("Please specify a book name after #request.")
             return
 
-        # Handle #book search
-        if text.lower().startswith("#book"):
+        # Handle #book or /book search
+        if text.lower().startswith('#book'):
             query = text[5:].strip()
-            if not query:
-                update.message.reply_text("Please provide a book name after #book.")
-                return
+        elif text.lower().startswith('/book'):
+            query = text[5:].strip()
         else:
-            # Plain text search
-            query = text
+            return
 
-        # Perform search
+        if not query:
+            update.message.reply_text("Please provide a book name after #book or /book.")
+            return
+
         results = search_files(query)
         if not results:
             update.message.reply_text("❌ No books found matching your query.")
