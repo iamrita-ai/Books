@@ -120,14 +120,9 @@ def group_message_handler(update: Update, context: CallbackContext):
 
         context.user_data['search_results'] = results
         context.user_data['current_page'] = 0
-        try:
-            send_results_page(update, context, 0)
-        except Exception as e:
-            logger.error(f"Error in send_results_page: {e}", exc_info=True)
-            update.message.reply_text("❌ An error occurred while displaying results.")
+        send_results_page(update, context, 0)
 
 def send_results_page(update: Update, context: CallbackContext, page):
-    logger.info(f"send_results_page called with page {page}")
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
     if not results:
