@@ -12,7 +12,7 @@ def source_group_handler(update: Update, context):
     """Handle documents from the source group with comprehensive logging."""
     try:
         chat_id = update.effective_chat.id
-        logger.info(f"📥 Source group message received in chat {chat_id}")
+        logger.info(f"⚡ source_group_handler CALLED for chat {chat_id}")
 
         # Verify it's the source group
         if chat_id != SOURCE_CHANNEL:
