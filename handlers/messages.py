@@ -11,7 +11,6 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Reaction queue and worker
 reaction_queue = queue.Queue()
 reaction_running = True
 
@@ -43,7 +42,6 @@ reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def group_message_handler(update: Update, context: CallbackContext):
-    # Queue reaction for every message
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
     msg_type = "text"
@@ -63,11 +61,9 @@ def group_message_handler(update: Update, context: CallbackContext):
 
     update_user(user.id, user.first_name, user.username)
 
-    # Lock check
     if is_bot_locked() and user.id != OWNER_ID:
         return
 
-    # Force subscribe check
     if FORCE_SUB_CHANNEL and not check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         update.message.reply_text(
@@ -76,15 +72,12 @@ def group_message_handler(update: Update, context: CallbackContext):
         )
         return
 
-    # Handle text messages
     if update.message.text:
         text = update.message.text.strip()
 
-        # Ignore plain text (no search) – only #book, /book, or #request
         if not (text.startswith('/book') or text.startswith('#book') or text.startswith('#request')):
             return
 
-        # Handle #request
         if text.lower().startswith('#request'):
             book_name = text[8:].strip()
             if book_name:
@@ -108,7 +101,6 @@ def group_message_handler(update: Update, context: CallbackContext):
                 update.message.reply_text("Please specify a book name after #request.")
             return
 
-        # Handle #book or /book search
         if text.lower().startswith('#book'):
             query = text[5:].strip()
         elif text.lower().startswith('/book'):
@@ -128,9 +120,14 @@ def group_message_handler(update: Update, context: CallbackContext):
 
         context.user_data['search_results'] = results
         context.user_data['current_page'] = 0
-        send_results_page(update, context, 0)
+        try:
+            send_results_page(update, context, 0)
+        except Exception as e:
+            logger.error(f"Error in send_results_page: {e}", exc_info=True)
+            update.message.reply_text("❌ An error occurred while displaying results.")
 
 def send_results_page(update: Update, context: CallbackContext, page):
+    logger.info(f"send_results_page called with page {page}")
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
     if not results:
