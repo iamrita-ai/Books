@@ -42,7 +42,7 @@ def source_group_handler(update: Update, context):
             original_filename=doc.file_name,
             file_size=doc.file_size,
             message_id=message.message_id,
-            channel_id=chat_id  # store which channel it came from
+            channel_id=chat_id
         )
 
         if added:
@@ -71,17 +71,8 @@ def source_group_handler(update: Update, context):
         except:
             pass
 
-# Handler for all source groups (Filters.chat accepts multiple IDs with OR logic)
-# Note: Filters.chat(chat_id=SOURCE_CHANNELS) works only if SOURCE_CHANNELS is a list? In PTB v13, Filters.chat accepts a single ID. We'll use a custom filter.
-from telegram.ext import BaseFilter
-
-class FilterSourceGroups(BaseFilter):
-    def filter(self, message):
-        return message.chat_id in SOURCE_CHANNELS
-
-source_group_filter = FilterSourceGroups()
-
+# ✅ Simple handler: accepts all documents, but filters inside the function
 source_group_handler_obj = MessageHandler(
-    source_group_filter & Filters.document,
+    Filters.document,
     source_group_handler
 )
