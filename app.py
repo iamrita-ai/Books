@@ -55,7 +55,6 @@ def acquire_lock():
             with open(LOCK_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
             os.kill(old_pid, 0)  # Check if process exists
-            # Process exists – lock is valid
             return False
         except (ProcessLookupError, ValueError, FileNotFoundError, IOError):
             # Stale lock – remove it and try again
@@ -63,7 +62,7 @@ def acquire_lock():
                 os.remove(LOCK_FILE)
             except:
                 pass
-            return acquire_lock()  # Retry
+            return acquire_lock()
 
 def release_lock():
     try:
@@ -104,21 +103,23 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)         # Reactions and #book/#request
             dp.add_handler(callback_handler)                  # Inline button callbacks
 
-            # ✅ SAFE ERROR CALLBACK – handles None updates gracefully
+            # ✅ ULTRA SAFE ERROR CALLBACK
             def error_callback(update, context):
                 try:
                     if update is not None:
-                        update_id = getattr(update, 'update_id', 'Unknown')
+                        # Safely get update_id without assuming structure
+                        update_id = update.update_id if hasattr(update, 'update_id') else 'N/A'
                         logger.error(f"Update {update_id} caused error: {context.error}")
                     else:
                         logger.error(f"Error without update: {context.error}")
                 except Exception as e:
-                    logger.error(f"Error in error callback itself: {e}")
+                    # If even this fails, log the raw error
+                    logger.error(f"Error in error callback: {e} - original error: {context.error}")
                 
-                # Handle specific errors
+                # Do NOT stop updater for generic errors
                 if isinstance(context.error, Conflict):
-                    logger.critical("Conflict detected – stopping updater (will restart in 30s).")
-                    updater.stop()
+                    logger.critical("Conflict detected – will restart in 30s")
+                    updater.stop()  # This will trigger outer loop restart
 
             dp.add_error_handler(error_callback)
 
