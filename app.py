@@ -21,10 +21,9 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
-# Import database and handlers
 from database import init_db
 from handlers import (
-    source_group_handler_obj,      # 👈 removed channel_handler
+    source_group_handler_obj,
     get_command_handlers,
     group_message_handler_obj,
     callback_handler
@@ -35,7 +34,6 @@ import datetime
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
-# ==================== PID-based lock ====================
 LOCK_FILE = '/tmp/bot.lock'
 
 def acquire_lock():
@@ -69,7 +67,6 @@ def release_lock():
 
 atexit.register(release_lock)
 
-# ==================== Bot Thread ====================
 bot_thread = None
 updater_instance = None
 bot_running = True
@@ -90,14 +87,12 @@ def run_bot():
             updater_instance = updater
             dp = updater.dispatcher
 
-            # Add all handlers
-            dp.add_handler(source_group_handler_obj)          # 👈 only source group handler
+            dp.add_handler(source_group_handler_obj)
             for handler in get_command_handlers():
                 dp.add_handler(handler)
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # ✅ Bulletproof error callback
             def error_callback(update, context):
                 try:
                     if update is not None:
@@ -148,7 +143,6 @@ def start_bot_thread():
 
 start_bot_thread()
 
-# ==================== Flask Web Server ====================
 @app.route('/health', methods=['GET'])
 def health():
     thread_alive = bot_thread.is_alive() if bot_thread else False
