@@ -9,33 +9,27 @@ import traceback
 logger = logging.getLogger(__name__)
 
 def source_group_handler(update: Update, context):
-    """Handle documents from any source group."""
     try:
         chat_id = update.effective_chat.id
         message = update.message
         logger.info(f"⚡ source_group_handler CALLED for chat {chat_id}")
 
-        # Verify it's one of the source groups
         if chat_id not in SOURCE_CHANNELS:
             logger.warning(f"Ignoring message from chat {chat_id} (not in source list)")
             return
 
-        # Must be a document
         if not message or not message.document:
             logger.info("No document in message, ignoring")
             return
 
         doc = message.document
         logger.info(f"📄 Document received: {doc.file_name} ({doc.file_size} bytes)")
-        logger.info(f"📄 File ID: {doc.file_id}")
 
-        # Size check
         if doc.file_size > MAX_FILE_SIZE:
             logger.warning(f"File too large: {format_size(doc.file_size)} > {format_size(MAX_FILE_SIZE)}")
             log_to_channel(context.bot, f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
             return
 
-        # Save to database
         added = add_file(
             file_id=doc.file_id,
             file_unique_id=doc.file_unique_id,
@@ -71,7 +65,6 @@ def source_group_handler(update: Update, context):
         except:
             pass
 
-# Handler accepts all documents; we filter inside the function
 source_group_handler_obj = MessageHandler(
     Filters.document,
     source_group_handler
