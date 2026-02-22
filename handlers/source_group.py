@@ -4,58 +4,71 @@ from config import SOURCE_CHANNEL, MAX_FILE_SIZE, LOG_CHANNEL
 from database import add_file
 from utils import log_to_channel, format_size
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
 def source_group_handler(update: Update, context):
-    """Handle documents from the source group."""
-    chat_id = update.effective_chat.id
-    logger.info(f"Message received in chat {chat_id}")
+    """Handle documents from the source group with comprehensive logging."""
+    try:
+        chat_id = update.effective_chat.id
+        logger.info(f"📥 Source group message received in chat {chat_id}")
 
-    # Verify it's the source group
-    if chat_id != SOURCE_CHANNEL:
-        logger.warning(f"Ignoring message from chat {chat_id} (not source)")
-        return
+        # Verify it's the source group
+        if chat_id != SOURCE_CHANNEL:
+            logger.warning(f"Ignoring message from chat {chat_id} (not source)")
+            return
 
-    # Must be a document
-    if not update.message or not update.message.document:
-        logger.info("No document, ignoring")
-        return
+        # Must be a document
+        if not update.message or not update.message.document:
+            logger.info("No document, ignoring")
+            return
 
-    doc = update.message.document
-    logger.info(f"Document: {doc.file_name} ({doc.file_size} bytes)")
+        doc = update.message.document
+        logger.info(f"📄 Document received: {doc.file_name} ({doc.file_size} bytes)")
 
-    # Size check
-    if doc.file_size > MAX_FILE_SIZE:
-        logger.warning(f"File too large: {format_size(doc.file_size)}")
-        log_to_channel(context.bot, f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
-        return
+        # Size check
+        if doc.file_size > MAX_FILE_SIZE:
+            logger.warning(f"File too large: {format_size(doc.file_size)} > {format_size(MAX_FILE_SIZE)}")
+            log_to_channel(context.bot, f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
+            return
 
-    # Save to database
-    added = add_file(
-        file_id=doc.file_id,
-        file_unique_id=doc.file_unique_id,
-        original_filename=doc.file_name,
-        file_size=doc.file_size,
-        message_id=update.message.message_id,
-        channel_id=SOURCE_CHANNEL
-    )
-
-    if added:
-        logger.info(f"File added: {doc.file_name}")
-        update.message.reply_text(
-            f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_to_message_id=update.message.message_id
+        # Save to database
+        added = add_file(
+            file_id=doc.file_id,
+            file_unique_id=doc.file_unique_id,
+            original_filename=doc.file_name,
+            file_size=doc.file_size,
+            message_id=update.message.message_id,
+            channel_id=SOURCE_CHANNEL
         )
-        log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
-    else:
-        logger.info(f"Duplicate file: {doc.file_name}")
-        update.message.reply_text(
-            "⚠️ This PDF is already in the database.",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_to_message_id=update.message.message_id
-        )
+
+        if added:
+            logger.info(f"✅ File added to database: {doc.file_name}")
+            update.message.reply_text(
+                f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_to_message_id=update.message.message_id
+            )
+            log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
+        else:
+            logger.info(f"⚠️ Duplicate file: {doc.file_name}")
+            update.message.reply_text(
+                "⚠️ This PDF is already in the database.",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_to_message_id=update.message.message_id
+            )
+
+    except Exception as e:
+        logger.error(f"❌ Error in source_group_handler: {e}\n{traceback.format_exc()}")
+        # Optionally notify owner or log channel
+        try:
+            context.bot.send_message(
+                chat_id=LOG_CHANNEL,
+                text=f"❌ Error processing document: {e}"
+            )
+        except:
+            pass
 
 # Handler for source group (exact chat ID)
 source_group_handler_obj = MessageHandler(
