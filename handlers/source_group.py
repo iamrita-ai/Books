@@ -1,6 +1,6 @@
 from telegram.ext import MessageHandler, Filters
 from telegram import Update, ParseMode
-from config import SOURCE_CHANNEL, MAX_FILE_SIZE, LOG_CHANNEL
+from config import SOURCE_CHANNELS, MAX_FILE_SIZE, LOG_CHANNEL
 from database import add_file
 from utils import log_to_channel, format_size
 import logging
@@ -9,16 +9,15 @@ import traceback
 logger = logging.getLogger(__name__)
 
 def source_group_handler(update: Update, context):
-    """Handle documents from the source group with comprehensive logging."""
+    """Handle documents from any source group."""
     try:
         chat_id = update.effective_chat.id
         message = update.message
         logger.info(f"⚡ source_group_handler CALLED for chat {chat_id}")
-        logger.info(f"📨 Full update: {update}")
 
-        # Verify it's the source group
-        if chat_id != SOURCE_CHANNEL:
-            logger.warning(f"Ignoring message from chat {chat_id} (not source)")
+        # Verify it's one of the source groups
+        if chat_id not in SOURCE_CHANNELS:
+            logger.warning(f"Ignoring message from chat {chat_id} (not in source list)")
             return
 
         # Must be a document
@@ -43,7 +42,7 @@ def source_group_handler(update: Update, context):
             original_filename=doc.file_name,
             file_size=doc.file_size,
             message_id=message.message_id,
-            channel_id=SOURCE_CHANNEL
+            channel_id=chat_id  # store which channel it came from
         )
 
         if added:
@@ -72,8 +71,17 @@ def source_group_handler(update: Update, context):
         except:
             pass
 
-# Handler for source group (exact chat ID)
+# Handler for all source groups (Filters.chat accepts multiple IDs with OR logic)
+# Note: Filters.chat(chat_id=SOURCE_CHANNELS) works only if SOURCE_CHANNELS is a list? In PTB v13, Filters.chat accepts a single ID. We'll use a custom filter.
+from telegram.ext import BaseFilter
+
+class FilterSourceGroups(BaseFilter):
+    def filter(self, message):
+        return message.chat_id in SOURCE_CHANNELS
+
+source_group_filter = FilterSourceGroups()
+
 source_group_handler_obj = MessageHandler(
-    Filters.chat(chat_id=SOURCE_CHANNEL) & Filters.document,
+    source_group_filter & Filters.document,
     source_group_handler
 )
