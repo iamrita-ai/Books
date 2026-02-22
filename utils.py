@@ -5,6 +5,9 @@ import time
 from datetime import datetime
 import psutil
 from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN, OWNER_ID, OWNER_USERNAME, REQUEST_GROUP
+import logging
+
+logger = logging.getLogger(__name__)
 
 def normalize_name(name: str) -> str:
     name = name.lower()
@@ -40,7 +43,7 @@ def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = Fals
         response = requests.post(url, json=data, timeout=5)
         return response.json().get("ok", False)
     except Exception as e:
-        print(f"Reaction error: {e}")
+        logger.error(f"Reaction error: {e}")
         return False
 
 def check_subscription(user_id, bot):
@@ -49,14 +52,17 @@ def check_subscription(user_id, bot):
     try:
         member = bot.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
         return member.status in ['member', 'administrator', 'creator']
-    except Exception:
+    except Exception as e:
+        logger.error(f"Subscription check error: {e}")
         return False
 
 def log_to_channel(bot, text: str):
+    if not LOG_CHANNEL:
+        return
     try:
         bot.send_message(chat_id=LOG_CHANNEL, text=text)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Log to channel failed: {e}")
 
 def get_uptime(start_time: datetime) -> str:
     delta = datetime.now() - start_time
@@ -101,7 +107,7 @@ def build_start_keyboard():
             buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]
+    return [buttons]  # single row
 
 def build_info_keyboard():
     """Build the info row for search results."""
@@ -119,4 +125,4 @@ def build_info_keyboard():
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]
+    return [buttons]  # single row
