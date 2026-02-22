@@ -2,7 +2,6 @@ import re
 import random
 import requests
 import time
-import logging
 from datetime import datetime
 import psutil
 from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN, OWNER_ID, OWNER_USERNAME, REQUEST_GROUP
@@ -28,7 +27,7 @@ def random_reaction() -> str:
     return random.choice(emojis)
 
 def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False):
-    """Send reaction using direct API call with retry."""
+    """Send reaction using direct API call."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMessageReaction"
     data = {
         "chat_id": chat_id,
@@ -37,18 +36,12 @@ def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = Fals
     }
     if is_big:
         data["is_big"] = True
-    for attempt in range(3):
-        try:
-            response = requests.post(url, json=data, timeout=5)
-            if response.status_code == 200:
-                return True
-            else:
-                time.sleep(1)
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Reaction attempt {attempt+1} failed: {e}")
-            time.sleep(1)
-    return False
+    try:
+        response = requests.post(url, json=data, timeout=5)
+        return response.json().get("ok", False)
+    except Exception as e:
+        print(f"Reaction error: {e}")
+        return False
 
 def check_subscription(user_id, bot):
     if not FORCE_SUB_CHANNEL:
@@ -90,38 +83,40 @@ def build_start_keyboard():
     """Build the inline keyboard for /start message."""
     from telegram import InlineKeyboardButton
     buttons = []
+    
     if OWNER_USERNAME:
         owner_display = OWNER_USERNAME if OWNER_USERNAME.startswith('@') else f"@{OWNER_USERNAME}"
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{owner_display[1:]}"))
     elif OWNER_ID:
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
+    
     if FORCE_SUB_CHANNEL:
         channel_display = FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL.startswith('@') else f"@{FORCE_SUB_CHANNEL}"
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
+    
     if REQUEST_GROUP:
         if REQUEST_GROUP.startswith('@'):
             buttons.append(InlineKeyboardButton("📝 Request Group", url=f"https://t.me/{REQUEST_GROUP[1:]}"))
         else:
             buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
+    
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
     return [buttons]
 
 def build_info_keyboard():
-    """Build the info row for search results (same as start but without request group maybe)."""
+    """Build the info row for search results."""
     from telegram import InlineKeyboardButton
     buttons = []
+    
     if OWNER_USERNAME:
         owner_display = OWNER_USERNAME if OWNER_USERNAME.startswith('@') else f"@{OWNER_USERNAME}"
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"https://t.me/{owner_display[1:]}"))
     elif OWNER_ID:
         buttons.append(InlineKeyboardButton("👤 Owner", url=f"tg://user?id={OWNER_ID}"))
+    
     if FORCE_SUB_CHANNEL:
         channel_display = FORCE_SUB_CHANNEL if FORCE_SUB_CHANNEL.startswith('@') else f"@{FORCE_SUB_CHANNEL}"
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
-    if REQUEST_GROUP:
-        if REQUEST_GROUP.startswith('@'):
-            buttons.append(InlineKeyboardButton("📝 Request Group", url=f"https://t.me/{REQUEST_GROUP[1:]}"))
-        else:
-            buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
+    
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
     return [buttons]
