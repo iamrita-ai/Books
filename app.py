@@ -21,7 +21,6 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
-# Import database and handlers
 from database import init_db
 from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
 from config import BOT_NAME
@@ -30,11 +29,10 @@ import datetime
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
-# ==================== PID-based lock ====================
+# PID-based lock
 LOCK_FILE = '/tmp/bot.lock'
 
 def acquire_lock():
-    """Try to acquire a lock by writing our PID into a file with flock."""
     try:
         global lock_fp
         lock_fp = open(LOCK_FILE, 'w')
@@ -43,23 +41,19 @@ def acquire_lock():
         lock_fp.flush()
         return True
     except (IOError, OSError):
-        # Lock already held – check if the process that holds it is still alive
         try:
             with open(LOCK_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
-            os.kill(old_pid, 0)  # Check if process exists
-            # Process exists – lock is valid
+            os.kill(old_pid, 0)
             return False
         except (ProcessLookupError, ValueError, FileNotFoundError, IOError):
-            # Stale lock – remove it and try again
             try:
                 os.remove(LOCK_FILE)
             except:
                 pass
-            return acquire_lock()  # Retry
+            return acquire_lock()
 
 def release_lock():
-    """Release the lock."""
     try:
         fcntl.flock(lock_fp, fcntl.LOCK_UN)
         lock_fp.close()
@@ -69,7 +63,6 @@ def release_lock():
 
 atexit.register(release_lock)
 
-# ==================== Bot Thread ====================
 bot_thread = None
 updater_instance = None
 bot_running = True
@@ -82,7 +75,7 @@ def run_bot():
 
     logger.info("🚀 Starting bot thread (lock acquired).")
     from telegram.ext import Updater
-    from telegram.error import Conflict, NetworkError, TelegramError
+    from telegram.error import Conflict, NetworkError
 
     while bot_running:
         try:
@@ -90,7 +83,6 @@ def run_bot():
             updater_instance = updater
             dp = updater.dispatcher
 
-            # Add all handlers
             dp.add_handler(channel_handler)
             for handler in get_command_handlers():
                 dp.add_handler(handler)
@@ -105,7 +97,6 @@ def run_bot():
 
             dp.add_error_handler(error_callback)
 
-            # Start polling with safe settings
             logger.info("Starting polling...")
             updater.start_polling(
                 poll_interval=1.0,
@@ -115,7 +106,6 @@ def run_bot():
             )
             logger.info("✅ Bot is polling and ready!")
 
-            # Keep thread alive
             while bot_running:
                 time.sleep(10)
                 logger.debug("Bot thread heartbeat - lock held")
@@ -141,7 +131,6 @@ def start_bot_thread():
 
 start_bot_thread()
 
-# ==================== Flask ====================
 @app.route('/health', methods=['GET'])
 def health():
     thread_alive = bot_thread.is_alive() if bot_thread else False
