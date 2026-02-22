@@ -2,8 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies if needed (none required for this fix)
-# Upgrade pip and install setuptools first to ensure availability
 RUN pip install --no-cache-dir --upgrade pip setuptools==65.6.3 wheel
 
 COPY requirements.txt .
