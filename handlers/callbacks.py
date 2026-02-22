@@ -25,6 +25,9 @@ def button_callback(update: Update, context: CallbackContext):
         page = int(data[5:])
         context.user_data['current_page'] = page
         results = context.user_data.get('search_results', [])
+        if not results:
+            query.edit_message_text("❌ No results found.")
+            return
         total = len(results)
         start = page * RESULTS_PER_PAGE
         end = min(start + RESULTS_PER_PAGE, total)
@@ -63,9 +66,8 @@ def button_callback(update: Update, context: CallbackContext):
         if REQUEST_GROUP:
             text += f"📝 <b>Request Group:</b> {REQUEST_GROUP}\n"
         text += "\n🔍 <b>How to search:</b>\n"
-        text += "• Type any part of a book name.\n"
-        text += "• Use <code>#book name</code>\n"
-        text += "• Use <code>/book name</code> command\n\n"
+        text += "• Type <code>#book name</code> or <code>/book name</code> in any group.\n"
+        text += "• Click on a result to get the PDF.\n\n"
         text += "📝 <b>Request a book:</b>\n"
         text += "Use <code>#request name</code> in group, or <code>/new_request name</code> in private.\n\n"
         text += "⚠️ <b>No copyrighted or illegal content</b> – only self-improvement and public domain books."
