@@ -7,7 +7,6 @@ import fcntl
 import atexit
 from flask import Flask, jsonify
 
-# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -25,8 +24,7 @@ if not BOT_TOKEN:
 # Import database and handlers
 from database import init_db
 from handlers import (
-    channel_handler,
-    source_group_handler_obj,
+    source_group_handler_obj,      # 👈 removed channel_handler
     get_command_handlers,
     group_message_handler_obj,
     callback_handler
@@ -49,7 +47,6 @@ def acquire_lock():
         lock_fp.flush()
         return True
     except (IOError, OSError):
-        # Lock already held – check if process is alive
         try:
             with open(LOCK_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
@@ -94,27 +91,23 @@ def run_bot():
             dp = updater.dispatcher
 
             # Add all handlers
-            dp.add_handler(channel_handler)
-            dp.add_handler(source_group_handler_obj)          # Source group PDF saver (multiple)
+            dp.add_handler(source_group_handler_obj)          # 👈 only source group handler
             for handler in get_command_handlers():
                 dp.add_handler(handler)
-            dp.add_handler(group_message_handler_obj)         # Reactions and #book/#request
-            dp.add_handler(callback_handler)                  # Inline button callbacks
+            dp.add_handler(group_message_handler_obj)
+            dp.add_handler(callback_handler)
 
-            # ✅ ULTRA SAFE ERROR CALLBACK
+            # ✅ Bulletproof error callback
             def error_callback(update, context):
                 try:
-                    # Never assume update is not None
                     if update is not None:
                         update_id = update.update_id if hasattr(update, 'update_id') else 'N/A'
                         logger.error(f"Update {update_id} caused error: {context.error}")
                     else:
                         logger.error(f"Error without update: {context.error}")
                 except Exception as e:
-                    # Fallback if even logging fails
                     logger.error(f"Fatal error in error callback: {e}")
                 
-                # Only stop for Conflict error
                 if isinstance(context.error, Conflict):
                     logger.critical("Conflict detected – restarting updater in 30s")
                     updater.stop()
@@ -130,7 +123,6 @@ def run_bot():
             )
             logger.info("✅ Bot is polling and ready!")
 
-            # Keep thread alive
             while bot_running:
                 time.sleep(10)
                 logger.debug("Bot thread heartbeat - lock held")
@@ -172,5 +164,4 @@ def index():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    logger.info(f"Starting Flask on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
