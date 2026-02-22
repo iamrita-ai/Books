@@ -104,19 +104,21 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)         # Reactions and #book/#request
             dp.add_handler(callback_handler)                  # Inline button callbacks
 
-            # Improved error callback
+            # ✅ SAFE ERROR CALLBACK – handles None updates gracefully
             def error_callback(update, context):
-                if update:
-                    logger.error(f"Update {update.update_id} caused error {context.error}")
-                else:
-                    logger.error(f"Error without update: {context.error}")
+                try:
+                    if update is not None:
+                        update_id = getattr(update, 'update_id', 'Unknown')
+                        logger.error(f"Update {update_id} caused error: {context.error}")
+                    else:
+                        logger.error(f"Error without update: {context.error}")
+                except Exception as e:
+                    logger.error(f"Error in error callback itself: {e}")
                 
+                # Handle specific errors
                 if isinstance(context.error, Conflict):
                     logger.critical("Conflict detected – stopping updater (will restart in 30s).")
                     updater.stop()
-                elif isinstance(context.error, NetworkError):
-                    logger.error(f"Network error: {context.error}. Continuing...")
-                # Other errors are logged but do not stop the updater
 
             dp.add_error_handler(error_callback)
 
