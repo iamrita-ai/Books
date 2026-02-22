@@ -85,6 +85,7 @@ def get_disk_usage():
         return None
 
 def build_start_keyboard():
+    """Build the inline keyboard for /start message (returns list of rows)."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -105,9 +106,10 @@ def build_start_keyboard():
             buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]
+    return [buttons]  # Return list of rows (one row)
 
 def build_info_keyboard():
+    """Build the info row for search results (returns a single row as a list of buttons)."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -122,4 +124,4 @@ def build_info_keyboard():
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]
+    return buttons  # Return a single row (list of buttons)
