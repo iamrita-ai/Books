@@ -1,62 +1,177 @@
-🚀 Deployment on Render
-Push code to a GitHub repository.
+# 📚 PDF Library Bot – Telegram Book & PDF Bot
 
-Create a new Web Service on Render, connect your repo.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.0.0-blue.svg" />
+  <img src="https://img.shields.io/badge/python-3.11-green.svg" />
+  <img src="https://img.shields.io/badge/telegram-bot-2CA5E0.svg" />
+  <img src="https://img.shields.io/badge/Render-deployed-success.svg" />
+</p>
 
-Set the Build Command to pip install -r requirements.txt.
+<p align="center">
+  <b>A powerful Telegram bot that listens to source groups, stores PDF metadata, and provides instant book search with colourful inline buttons.</b>
+</p>
 
-Set the Start Command to gunicorn app:app.
+---
 
-Add all environment variables from .env.example in Render's dashboard.
+## 📋 Table of Contents
+- [✨ Features](#-features)
+- [🤖 Bot Commands](#-bot-commands)
+- [⚙️ Configuration](#️-configuration)
+- [🚀 Deploy on Render](#-deploy-on-render)
+- [📁 Project Structure](#-project-structure)
+- [👨‍💻 Credits & License](#-credits--license)
+- [📞 Support](#-support)
 
-Render will automatically provide the RENDER_EXTERNAL_URL variable, which will be used as the webhook base.
+---
 
-After deployment, the bot will set the webhook to https://your-app.onrender.com/webhook.
+## ✨ Features
 
-⚠️ Ensure your bot is allowed to receive updates via webhook; you may need to remove any previous webhook by visiting https://api.telegram.org/bot<YOUR_TOKEN>/deleteWebhook.
+| | Feature | Description |
+|---|---------|-------------|
+| 📥 | **Auto-save PDFs** | Listens to multiple source groups/channels and stores metadata (file_id, name, size) without downloading files. |
+| 🔍 | **Smart Search** | Search books using `#book <name>` or `/book <name>` with partial match support. |
+| 🎛️ | **Colourful Inline Buttons** | Results displayed with original filename + file size in attractive buttons. |
+| 📄 | **Pagination** | Navigate through multiple search results with next/prev buttons. |
+| ❤️ | **Animated Reactions** | Every message gets random animated reactions (big/small emojis). |
+| 📝 | **Book Requests** | Users can request books with `#request <name>` – owner gets notified. |
+| 🔐 | **Force Subscribe** | Users must join a channel before using the bot. |
+| 👤 | **Owner Contact** | Direct owner button in every menu. |
+| 📢 | **Channel & Request Group** | Quick access buttons to your channel and request group. |
+| 🛠️ | **Admin Commands** | Full suite of owner-only commands for management. |
+| 🚀 | **Ready to Deploy** | Docker + Gunicorn setup for instant deployment on Render. |
+| 💾 | **Lightweight** | Stores only metadata in SQLite – no PDF files saved. |
 
-🔧 Adding New Commands
-Create a new function in handlers/commands.py (or a new module if preferred).
+---
 
-Decorate with @owner_only if it's admin-only.
+## 🤖 Bot Commands
 
-Return a CommandHandler inside the get_handlers() function (or append to the list).
+### 👥 Public Commands
 
-The new command will automatically be registered in app.py.
+| Command | Description | Works In |
+|---------|-------------|----------|
+| `/start` | Welcome message with inline buttons | Private & Groups |
+| `/help` | Help and command list | Private & Groups |
+| `/stats` | Bot statistics (PDFs, users, uptime, etc.) | Groups |
+| `/book <name>` | Search for a book | Groups |
+| `#book <name>` | Alternative search tag | Groups |
+| `#request <name>` | Request a book (notifies owner) | Groups |
+| `/new_request <name>` | Request a book from private chat | Private |
 
-For example, to add a /ping command:
+### 🔒 Owner Only Commands
 
-python
-async def ping(update: Update, context):
-    await update.message.reply_text("pong")
+| Command | Description |
+|---------|-------------|
+| `/users` | Show total user count |
+| `/broadcast <msg>` | Send message to all users |
+| `/lock` | Lock bot (only owner can use) |
+| `/unlock` | Unlock bot |
+| `/export` | Export database file |
+| `/delete_db` | Delete all data (requires confirmation) |
+| `/confirm_delete` | Confirm database deletion |
 
-# Inside get_handlers(), add:
-CommandHandler("ping", ping, filters=filters.ChatType.GROUPS)
+---
 
-📈 Performance & Scalability
-Database: SQLite with indexes on normalized_name ensures fast partial searches.
+## ⚙️ Configuration
 
-No file storage: Only file_id is stored, so no disk usage for PDFs.
+### Environment Variables
 
-Pagination: Limits inline button rows to avoid hitting Telegram limits.
+Create a `.env` file or set these in Render dashboard:
 
-Webhook: Efficiently processes updates without polling.
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `BOT_TOKEN` | ✅ | Bot token from [@BotFather](https://t.me/botfather) | `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
+| `OWNER_ID` | ✅ | Your Telegram numeric ID | `123456789` |
+| `OWNER_USERNAME` | ✅ | Your Telegram username (with @) | `@Xioqui_xin` |
+| `FORCE_SUB_CHANNEL` | ✅ | Channel users must join | `@serenaunzip` |
+| `SOURCE_CHANNELS` | ✅ | Comma-separated numeric IDs of source groups | `-1003745290301,-1003412208912` |
+| `LOG_CHANNEL` | ❌ | Channel ID for logs | `-1001234567890` |
+| `REQUEST_GROUP` | ❌ | Link or @username for request group | `@requestgroup` |
+| `BOT_NAME` | ❌ | Custom bot name | `📚 PDF Library Bot` |
 
-Background thread: Separates asyncio bot logic from Flask's sync worker, allowing smooth operation.
+> ⚠️ **Important**:  
+> - `SOURCE_CHANNELS` must be **numeric IDs** (e.g., `-1001234567890`). Get them from [@getidsbot](https://t.me/getidsbot).  
+> - Bot must be **a member** of these source groups.  
+> - **Group Privacy must be OFF** for the bot to read messages (configure via BotFather).
 
-✅ Summary
-This bot meets all requirements:
+---
 
-Listens to source channel, ignores >100 MB, stores metadata only.
+## 🚀 Deploy on Render
 
-Group-only search with colorful inline buttons.
+### Step 1: Fork or Clone Repository
+```bash
+git clone https://github.com/SerenaXdev/pdf-library-bot.git
+cd pdf-library-bot
 
-Force subscribe, owner contact, channel button, info button.
 
-Reactions on every message.
 
-Modular commands with /stats, /broadcast, etc.
+Step 2: Push to Your GitHub
+Step 3: Create New Web Service on Render
+Go to Render Dashboard
 
-Environment variables, no hardcoded secrets.
+Click New + → Web Service
 
-Ready for Render deployment with health check.
+Connect your GitHub repository
+
+Configure:
+
+Name: your-bot-name
+
+Environment: Docker (auto-detected)
+
+Region: choose closest
+
+Branch: main
+
+Build Command: leave blank
+
+Start Command: leave blank
+
+Instance Type: Free (or paid)
+
+Step 4: Add Environment Variables
+Add all variables from the Configuration section.
+
+Step 5: Deploy
+Click Create Web Service. Render will build and deploy your bot.
+
+✅ After deployment, visit https://your-app.onrender.com/health to verify status.
+
+
+👨‍💻 Credits & License
+<p align="center"> <b>Created with ❤️ by <a href="https://github.com/SerenaXdev">SerenaXdev</a></b> </p>
+text
+© 2025 SerenaXdev. All Rights Reserved.
+📝 Terms & Conditions
+✅ You may use this code personally or for your own bot.
+
+✅ You must give proper credit to the original author (SerenaXdev).
+
+✅ You may modify the code for your needs.
+
+❌ You may NOT claim this code as your own.
+
+❌ You may NOT redistribute without credit.
+
+❌ Commercial use requires explicit permission.
+
+By using this code, you agree to these terms.
+
+📞 Support
+🐛 Found a bug? Open an issue
+
+💬 Questions? Contact @Xioqui_xin
+
+⭐ Like this project? Star on GitHub!
+
+
+
+
+
+📊 Bot Statistics
+Metric	Value
+Python	3.11
+Database	SQLite
+Framework	python-telegram-bot v13.15
+Hosting	Render (Docker)
+File Size Limit	100 MB
+<p align="center"> <b>📚 Happy Reading! 📚</b><br> <i>Made with ❤️ by SerenaXdev</i> </p> ```
