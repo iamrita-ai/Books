@@ -71,7 +71,7 @@ def source_group_handler(update: Update, context):
         except:
             pass
 
-# ✅ Simple handler: accepts all documents, but filters inside the function
+# Handler accepts all documents; we filter inside the function
 source_group_handler_obj = MessageHandler(
     Filters.document,
     source_group_handler
