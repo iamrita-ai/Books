@@ -30,7 +30,6 @@ def random_reaction() -> str:
     return random.choice(emojis)
 
 def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False):
-    """Send reaction using direct API call."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMessageReaction"
     data = {
         "chat_id": chat_id,
@@ -86,7 +85,6 @@ def get_disk_usage():
         return None
 
 def build_start_keyboard():
-    """Build the inline keyboard for /start message."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -107,10 +105,9 @@ def build_start_keyboard():
             buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]  # single row
+    return [buttons]
 
 def build_info_keyboard():
-    """Build the info row for search results."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -125,4 +122,4 @@ def build_info_keyboard():
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]  # single row
+    return [buttons]
