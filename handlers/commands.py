@@ -135,14 +135,9 @@ def book_search(update: Update, context):
         return
     context.user_data['search_results'] = results
     context.user_data['current_page'] = 0
-    try:
-        send_results_page(update, context, 0)
-    except Exception as e:
-        logger.error(f"Error in book_search send_results_page: {e}", exc_info=True)
-        update.message.reply_text("❌ An error occurred while displaying results.")
+    send_results_page(update, context, 0)
 
 def send_results_page(update: Update, context: CallbackContext, page):
-    logger.info(f"send_results_page called from commands with page {page}")
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
     if not results:
@@ -178,6 +173,7 @@ def send_results_page(update: Update, context: CallbackContext, page):
         parse_mode=ParseMode.HTML
     )
 
+# Admin commands (unchanged, include them as before)
 @owner_only
 def users(update: Update, context):
     count = get_total_users()
@@ -249,7 +245,6 @@ def new_request(update: Update, context):
     if update.effective_chat.type != "private":
         update.message.reply_text("Please use this command in private chat with me.")
         return
-
     if not context.args:
         update.message.reply_text(
             "📝 Please provide a book name.\n"
@@ -257,7 +252,6 @@ def new_request(update: Update, context):
             parse_mode=ParseMode.HTML
         )
         return
-
     book_name = ' '.join(context.args)
     user = update.effective_user
     if OWNER_ID:
