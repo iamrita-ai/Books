@@ -3,6 +3,9 @@ import os
 from contextlib import contextmanager
 from datetime import datetime
 from config import DATABASE
+import logging
+
+logger = logging.getLogger(__name__)
 
 @contextmanager
 def get_db():
@@ -68,6 +71,7 @@ def add_file(file_id, file_unique_id, original_filename, file_size, message_id, 
 def search_files(query):
     from utils import normalize_name
     normalized_query = f"%{normalize_name(query)}%"
+    logger.info(f"🔍 search_files: query='{query}', normalized='{normalized_query}'")
     with get_db() as conn:
         rows = conn.execute("""
             SELECT id, normalized_name, original_filename, file_size, file_id
@@ -75,7 +79,11 @@ def search_files(query):
             WHERE normalized_name LIKE ?
             ORDER BY upload_time DESC
         """, (normalized_query,)).fetchall()
-    return [dict(row) for row in rows]
+        logger.info(f"📊 search_files: found {len(rows)} rows")
+        result_list = [dict(row) for row in rows]
+        for r in result_list:
+            logger.info(f"   - {r['original_filename']}")
+    return result_list
 
 def get_file_by_id(file_id):
     with get_db() as conn:
