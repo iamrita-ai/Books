@@ -8,29 +8,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 def source_group_handler(update: Update, context):
-    """Handle documents from the source group (where PDFs are uploaded)."""
-    # Log for debugging
-    logger.info(f"Message received in chat {update.effective_chat.id}")
+    """Handle documents from the source group."""
+    chat_id = update.effective_chat.id
+    logger.info(f"Message received in chat {chat_id}")
 
-    # Check if it's our source group
-    if update.effective_chat.id != SOURCE_CHANNEL:
-        logger.warning(f"Ignoring message from chat {update.effective_chat.id}")
+    # Verify it's the source group
+    if chat_id != SOURCE_CHANNEL:
+        logger.warning(f"Ignoring message from chat {chat_id} (not source)")
         return
 
-    # Check if it has a document
+    # Must be a document
     if not update.message or not update.message.document:
         logger.info("No document, ignoring")
         return
 
     doc = update.message.document
-    logger.info(f"Document received: {doc.file_name} ({doc.file_size} bytes)")
+    logger.info(f"Document: {doc.file_name} ({doc.file_size} bytes)")
 
+    # Size check
     if doc.file_size > MAX_FILE_SIZE:
-        logger.warning(f"File too large: {format_size(doc.file_size)} > {format_size(MAX_FILE_SIZE)}")
-        log_to_channel(context.bot,
-            f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
+        logger.warning(f"File too large: {format_size(doc.file_size)}")
+        log_to_channel(context.bot, f"🚫 Ignored large file: {doc.file_name} ({format_size(doc.file_size)})")
         return
 
+    # Save to database
     added = add_file(
         file_id=doc.file_id,
         file_unique_id=doc.file_unique_id,
@@ -39,16 +40,15 @@ def source_group_handler(update: Update, context):
         message_id=update.message.message_id,
         channel_id=SOURCE_CHANNEL
     )
+
     if added:
-        logger.info(f"File added to database: {doc.file_name}")
-        # Reply in the group
+        logger.info(f"File added: {doc.file_name}")
         update.message.reply_text(
             f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
             parse_mode=ParseMode.MARKDOWN,
             reply_to_message_id=update.message.message_id
         )
-        log_to_channel(context.bot,
-            f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
+        log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
     else:
         logger.info(f"Duplicate file: {doc.file_name}")
         update.message.reply_text(
@@ -57,7 +57,7 @@ def source_group_handler(update: Update, context):
             reply_to_message_id=update.message.message_id
         )
 
-# Handler for source group
+# Handler for source group (exact chat ID)
 source_group_handler_obj = MessageHandler(
     Filters.chat(chat_id=SOURCE_CHANNEL) & Filters.document,
     source_group_handler
