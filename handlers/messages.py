@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked
-from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, random_reaction
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 import queue
@@ -11,7 +11,7 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Reaction queue and worker (same as before)
+# Reaction queue and worker
 reaction_queue = queue.Queue()
 reaction_running = True
 
@@ -27,11 +27,9 @@ def reaction_worker():
                 "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
             }
             emojis = emoji_pools.get(msg_type, emoji_pools["text"])
-            # Send 1-3 reactions with at least one big reaction
             num_reactions = random.randint(1, 3)
             for i in range(num_reactions):
                 emoji = random.choice(emojis)
-                # First reaction is often big
                 is_big = (i == 0) or random.choice([True, False])
                 send_reaction(chat_id, message_id, emoji, is_big)
                 time.sleep(random.uniform(0.3, 0.7))
@@ -82,7 +80,7 @@ def group_message_handler(update: Update, context: CallbackContext):
     if update.message.text:
         text = update.message.text.strip()
 
-        # Ignore plain text (no search)
+        # Ignore plain text (no search) – only #book, /book, or #request
         if not (text.startswith('/book') or text.startswith('#book') or text.startswith('#request')):
             return
 
@@ -135,6 +133,10 @@ def group_message_handler(update: Update, context: CallbackContext):
 def send_results_page(update: Update, context: CallbackContext, page):
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
+    if not results:
+        update.message.reply_text("❌ No results found.")
+        return
+
     total = len(results)
     start = page * RESULTS_PER_PAGE
     end = min(start + RESULTS_PER_PAGE, total)
