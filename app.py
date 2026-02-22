@@ -79,7 +79,7 @@ def run_bot():
 
     logger.info("🚀 Starting bot thread (lock acquired).")
     from telegram.ext import Updater
-    from telegram.error import Conflict, NetworkError
+    from telegram.error import Conflict
 
     while bot_running:
         try:
@@ -93,21 +93,18 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # ✅ ULTRA SAFE ERROR CALLBACK
-            def error_callback(update, context):
+            # ✅ Correct error callback for PTB v13.15: (bot, update, error)
+            def error_callback(bot, update, error):
                 try:
                     if update is not None:
                         update_id = update.update_id if hasattr(update, 'update_id') else 'N/A'
-                        logger.error(f"Update {update_id} caused error: {context.error}")
-                        # Log update details if needed
-                        if hasattr(update, 'to_dict'):
-                            logger.debug(f"Update details: {update.to_dict()}")
+                        logger.error(f"Update {update_id} caused error: {error}")
                     else:
-                        logger.error(f"Error without update: {context.error}")
+                        logger.error(f"Error without update: {error}")
                 except Exception as e:
-                    logger.error(f"Fatal error in error callback: {e}")
+                    logger.error(f"Error in error callback: {e}")
                 
-                if isinstance(context.error, Conflict):
+                if isinstance(error, Conflict):
                     logger.critical("Conflict detected – restarting updater in 30s")
                     updater.stop()
 
