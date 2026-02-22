@@ -1,11 +1,13 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CommandHandler, Filters, CallbackContext
-from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP
+from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP, RESULTS_PER_PAGE
 from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
                       set_bot_locked, get_all_users, update_user, search_files)
-from utils import get_uptime, get_memory_usage, get_disk_usage, check_subscription, log_to_channel, build_start_keyboard, build_info_keyboard, format_size
+from utils import (get_uptime, get_memory_usage, get_disk_usage, check_subscription,
+                   log_to_channel, build_start_keyboard, build_info_keyboard, format_size)
 import datetime
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +46,9 @@ def start(update: Update, context):
             "📚 <b>How to use me:</b>\n"
             "• Add me to a <b>group</b> where you want to search for books.\n"
             "• In the group, you can:\n"
-            "   - Type any part of a book name (e.g., `mindset`)\n"
             "   - Use <code>#book mindset</code> to search\n"
+            "   - Use <code>/book mindset</code> command\n"
             "   - Use <code>#request book name</code> to request a book\n"
-            "   - Use <code>/book mindset</code> command (if preferred)\n"
             "• Click on a result button to instantly get the PDF.\n\n"
             "📖 <b>Book categories:</b> Self-improvement, Mindset, Hindi literature, English classics, and more.\n\n"
             "❌ <b>No copyrighted or illegal content</b> – only public domain or author-approved books.\n\n"
@@ -62,7 +63,6 @@ def start(update: Update, context):
             f"👋 <b>Hello {user.first_name}!</b>\n\n"
             f"I'm <b>{BOT_NAME}</b>, here to help you find PDF books.\n\n"
             "🔍 <b>To search:</b>\n"
-            "• Type any part of a book name (e.g., `mindset`)\n"
             "• Use <code>#book mindset</code>\n"
             "• Use <code>/book mindset</code> command\n\n"
             "📝 <b>To request a book:</b>\n"
@@ -92,7 +92,7 @@ def help_command(update: Update, context):
         "• <code>/unlock</code> – Unlock the bot\n"
         "• <code>/import</code> – Import database (placeholder)\n"
         "• <code>/export</code> – Export database\n"
-        "• <code>/delete_db</code> – Delete all data\n\n"
+        "• <code>/delete_db</code> – Delete all data (requires confirmation)\n\n"
         "📖 <b>Available books:</b> Self-improvement, Hindi literature, English classics, etc.\n"
         "❌ <b>No pirated content.</b>"
     )
@@ -138,11 +138,8 @@ def book_search(update: Update, context):
     send_results_page(update, context, 0)
 
 def send_results_page(update: Update, context: CallbackContext, page):
-    # This function is also used by message handler; we define it here or import? Better to define in a shared location.
-    # To avoid duplication, we'll keep it in commands and also use it from messages if needed.
-    # But since it's used in both places, we can define it in a separate module or just duplicate.
-    # We'll duplicate for simplicity.
-    from utils import build_info_keyboard, format_size
+    # This function is also used in messages.py; ensure it's defined or imported.
+    # For simplicity, we define it here and will also be used by commands.
     results = context.user_data.get('search_results', [])
     total = len(results)
     start = page * RESULTS_PER_PAGE
@@ -190,8 +187,9 @@ def broadcast(update: Update, context):
         try:
             context.bot.send_message(uid, message)
             success += 1
-        except Exception:
-            pass
+            time.sleep(0.05)  # avoid flood
+        except Exception as e:
+            logger.error(f"Broadcast to {uid} failed: {e}")
     update.message.reply_text(f"📢 Broadcast sent to {success}/{len(users)} users.")
     log_to_channel(context.bot, f"Broadcast sent by owner: {message[:50]}...")
 
@@ -213,7 +211,11 @@ def import_db(update: Update, context):
 
 @owner_only
 def export_db(update: Update, context):
-    update.message.reply_document(document=open('bot_data.db', 'rb'))
+    try:
+        with open('bot_data.db', 'rb') as f:
+            update.message.reply_document(document=f, filename='bot_data.db')
+    except Exception as e:
+        update.message.reply_text(f"❌ Export failed: {e}")
 
 @owner_only
 def delete_db(update: Update, context):
@@ -231,6 +233,7 @@ def confirm_delete(update: Update, context):
         init_db()
         update.message.reply_text("✅ Database cleared.")
         log_to_channel(context.bot, "Database deleted by owner.")
+        context.user_data['confirm_delete'] = False
     else:
         update.message.reply_text("No pending delete request.")
 
