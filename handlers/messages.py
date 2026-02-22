@@ -1,8 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
-from database import update_user, is_bot_locked
-from utils import check_subscription, log_to_channel, send_reaction
-from config import FORCE_SUB_CHANNEL, OWNER_ID
+from database import search_files, update_user, is_bot_locked
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
+from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 import queue
 import threading
@@ -11,18 +11,14 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Reaction queue with delay
+# Reaction queue and worker
 reaction_queue = queue.Queue()
 reaction_running = True
 
 def reaction_worker():
-    """Process reactions with delay to avoid flooding."""
     while reaction_running:
         try:
-            item = reaction_queue.get(timeout=1)
-            if item is None:
-                continue
-            chat_id, message_id, msg_type = item
+            chat_id, message_id, msg_type = reaction_queue.get(timeout=1)
             emoji_pools = {
                 "text": ["❤️", "🔥", "👍", "👏", "🎉", "🤔", "😮", "🤝", "💯", "⚡"],
                 "photo": ["❤️", "🔥", "👍", "👏", "😍", "🤩", "✨", "🌟", "🎯", "🏆"],
@@ -36,9 +32,8 @@ def reaction_worker():
                 emoji = random.choice(emojis)
                 is_big = random.choice([True, False])
                 send_reaction(chat_id, message_id, emoji, is_big)
-                time.sleep(random.uniform(0.5, 1.5))
+                time.sleep(random.uniform(0.2, 0.5))
             reaction_queue.task_done()
-            time.sleep(random.uniform(1, 3))
         except queue.Empty:
             time.sleep(0.1)
         except Exception as e:
@@ -48,20 +43,19 @@ reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def group_message_handler(update: Update, context: CallbackContext):
-    """Handle all messages in groups: react, but do NOT search automatically."""
-    if update.message:
-        chat_id = update.effective_chat.id
-        message_id = update.message.message_id
-        msg_type = "text"
-        if update.message.photo:
-            msg_type = "photo"
-        elif update.message.video:
-            msg_type = "video"
-        elif update.message.sticker:
-            msg_type = "sticker"
-        elif update.message.document:
-            msg_type = "document"
-        reaction_queue.put((chat_id, message_id, msg_type))
+    # Queue reaction
+    chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    msg_type = "text"
+    if update.message.photo:
+        msg_type = "photo"
+    elif update.message.video:
+        msg_type = "video"
+    elif update.message.sticker:
+        msg_type = "sticker"
+    elif update.message.document:
+        msg_type = "document"
+    reaction_queue.put((chat_id, message_id, msg_type))
 
     user = update.effective_user
     if not user:
@@ -77,16 +71,22 @@ def group_message_handler(update: Update, context: CallbackContext):
     if FORCE_SUB_CHANNEL and not check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         update.message.reply_text(
-            "⚠️ You must join our channel to use this bot.",
+            "⚠️ You must join our channel to search for books.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
-    # Handle #request (but only if it's text)
+    # Handle text messages
     if update.message.text:
-        query = update.message.text.strip()
-        if query.lower().startswith("#request"):
-            book_name = query[8:].strip()
+        text = update.message.text.strip()
+
+        # Ignore if starts with '/' (commands)
+        if text.startswith('/'):
+            return
+
+        # Handle #request
+        if text.lower().startswith("#request"):
+            book_name = text[8:].strip()
             if book_name:
                 update.message.reply_text(
                     "📝 Your request has been noted. We'll try to add it if it's non-copyright."
@@ -94,22 +94,72 @@ def group_message_handler(update: Update, context: CallbackContext):
                 log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
                 if OWNER_ID:
                     try:
-                        text = (
+                        msg = (
                             f"📌 <b>Group Book Request</b>\n\n"
                             f"<b>Book:</b> <code>{book_name}</code>\n"
                             f"<b>User:</b> {user.first_name} (@{user.username})\n"
                             f"<b>User ID:</b> <code>{user.id}</code>\n"
                             f"<b>Group:</b> {update.effective_chat.title}"
                         )
-                        context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.HTML)
+                        context.bot.send_message(chat_id=OWNER_ID, text=msg, parse_mode=ParseMode.HTML)
                     except:
                         pass
             else:
                 update.message.reply_text("Please specify a book name after #request.")
             return
 
-        # No automatic search for other text messages
-        # So we do nothing else
+        # Handle #book search
+        if text.lower().startswith("#book"):
+            query = text[5:].strip()
+            if not query:
+                update.message.reply_text("Please provide a book name after #book.")
+                return
+        else:
+            # Plain text search
+            query = text
+
+        # Perform search
+        results = search_files(query)
+        if not results:
+            update.message.reply_text("❌ No books found matching your query.")
+            log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
+            return
+
+        context.user_data['search_results'] = results
+        context.user_data['current_page'] = 0
+        send_results_page(update, context, 0)
+
+def send_results_page(update: Update, context: CallbackContext, page):
+    from utils import build_info_keyboard, format_size
+    results = context.user_data.get('search_results', [])
+    total = len(results)
+    start = page * RESULTS_PER_PAGE
+    end = min(start + RESULTS_PER_PAGE, total)
+    page_results = results[start:end]
+
+    keyboard = []
+    for res in page_results:
+        btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
+    if end < total:
+        nav_buttons.append(InlineKeyboardButton("Next ▶️", callback_data=f"page_{page+1}"))
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+
+    info_buttons = build_info_keyboard()
+    if info_buttons:
+        keyboard.append(info_buttons)
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(
+        f"📚 Found <b>{total}</b> results (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
 
 group_message_handler_obj = MessageHandler(
     Filters.chat_type.groups & Filters.all,
