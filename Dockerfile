@@ -2,15 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies if needed (none required for this fix)
+# Upgrade pip and install setuptools first to ensure availability
+RUN pip install --no-cache-dir --upgrade pip setuptools==65.6.3 wheel
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools && \
-    pip install --no-cache-dir --no-build-isolation -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
