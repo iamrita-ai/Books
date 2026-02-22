@@ -22,7 +22,13 @@ if not BOT_TOKEN:
     sys.exit(1)
 
 from database import init_db
-from handlers import channel_handler, get_command_handlers, group_message_handler_obj, callback_handler
+from handlers import (
+    channel_handler,
+    source_group_handler_obj,
+    get_command_handlers,
+    group_message_handler_obj,
+    callback_handler
+)
 from config import BOT_NAME
 import datetime
 
@@ -83,7 +89,9 @@ def run_bot():
             updater_instance = updater
             dp = updater.dispatcher
 
+            # Add all handlers
             dp.add_handler(channel_handler)
+            dp.add_handler(source_group_handler_obj)          # <-- New handler for source group
             for handler in get_command_handlers():
                 dp.add_handler(handler)
             dp.add_handler(group_message_handler_obj)
