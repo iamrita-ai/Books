@@ -12,7 +12,9 @@ def source_group_handler(update: Update, context):
     """Handle documents from the source group with comprehensive logging."""
     try:
         chat_id = update.effective_chat.id
+        message = update.message
         logger.info(f"⚡ source_group_handler CALLED for chat {chat_id}")
+        logger.info(f"📨 Full update: {update}")
 
         # Verify it's the source group
         if chat_id != SOURCE_CHANNEL:
@@ -20,12 +22,13 @@ def source_group_handler(update: Update, context):
             return
 
         # Must be a document
-        if not update.message or not update.message.document:
-            logger.info("No document, ignoring")
+        if not message or not message.document:
+            logger.info("No document in message, ignoring")
             return
 
-        doc = update.message.document
+        doc = message.document
         logger.info(f"📄 Document received: {doc.file_name} ({doc.file_size} bytes)")
+        logger.info(f"📄 File ID: {doc.file_id}")
 
         # Size check
         if doc.file_size > MAX_FILE_SIZE:
@@ -39,29 +42,28 @@ def source_group_handler(update: Update, context):
             file_unique_id=doc.file_unique_id,
             original_filename=doc.file_name,
             file_size=doc.file_size,
-            message_id=update.message.message_id,
+            message_id=message.message_id,
             channel_id=SOURCE_CHANNEL
         )
 
         if added:
             logger.info(f"✅ File added to database: {doc.file_name}")
-            update.message.reply_text(
+            message.reply_text(
                 f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
                 parse_mode=ParseMode.MARKDOWN,
-                reply_to_message_id=update.message.message_id
+                reply_to_message_id=message.message_id
             )
             log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
         else:
             logger.info(f"⚠️ Duplicate file: {doc.file_name}")
-            update.message.reply_text(
+            message.reply_text(
                 "⚠️ This PDF is already in the database.",
                 parse_mode=ParseMode.MARKDOWN,
-                reply_to_message_id=update.message.message_id
+                reply_to_message_id=message.message_id
             )
 
     except Exception as e:
         logger.error(f"❌ Error in source_group_handler: {e}\n{traceback.format_exc()}")
-        # Optionally notify owner or log channel
         try:
             context.bot.send_message(
                 chat_id=LOG_CHANNEL,
