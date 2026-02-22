@@ -7,6 +7,7 @@ import fcntl
 import atexit
 from flask import Flask, jsonify
 
+# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -21,6 +22,7 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN not set!")
     sys.exit(1)
 
+# Import database and handlers
 from database import init_db
 from handlers import (
     channel_handler,
@@ -32,10 +34,11 @@ from handlers import (
 from config import BOT_NAME
 import datetime
 
+# Initialize database
 init_db()
 BOT_START_TIME = datetime.datetime.now()
 
-# PID-based lock
+# ==================== PID-based lock ====================
 LOCK_FILE = '/tmp/bot.lock'
 
 def acquire_lock():
@@ -47,17 +50,20 @@ def acquire_lock():
         lock_fp.flush()
         return True
     except (IOError, OSError):
+        # Lock already held – check if process is alive
         try:
             with open(LOCK_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
-            os.kill(old_pid, 0)
+            os.kill(old_pid, 0)  # Check if process exists
+            # Process exists – lock is valid
             return False
         except (ProcessLookupError, ValueError, FileNotFoundError, IOError):
+            # Stale lock – remove it and try again
             try:
                 os.remove(LOCK_FILE)
             except:
                 pass
-            return acquire_lock()
+            return acquire_lock()  # Retry
 
 def release_lock():
     try:
@@ -69,6 +75,7 @@ def release_lock():
 
 atexit.register(release_lock)
 
+# ==================== Bot Thread ====================
 bot_thread = None
 updater_instance = None
 bot_running = True
@@ -91,17 +98,25 @@ def run_bot():
 
             # Add all handlers
             dp.add_handler(channel_handler)
-            dp.add_handler(source_group_handler_obj)          # <-- New handler for source group
+            dp.add_handler(source_group_handler_obj)          # Source group PDF saver
             for handler in get_command_handlers():
                 dp.add_handler(handler)
-            dp.add_handler(group_message_handler_obj)
-            dp.add_handler(callback_handler)
+            dp.add_handler(group_message_handler_obj)         # Reactions and #book/#request
+            dp.add_handler(callback_handler)                  # Inline button callbacks
 
+            # Improved error callback
             def error_callback(update, context):
-                logger.error(f"Update {update} caused error {context.error}")
+                if update:
+                    logger.error(f"Update {update.update_id} caused error {context.error}")
+                else:
+                    logger.error(f"Error without update: {context.error}")
+                
                 if isinstance(context.error, Conflict):
                     logger.critical("Conflict detected – stopping updater (will restart in 30s).")
                     updater.stop()
+                elif isinstance(context.error, NetworkError):
+                    logger.error(f"Network error: {context.error}. Continuing...")
+                # Other errors are logged but do not stop the updater
 
             dp.add_error_handler(error_callback)
 
@@ -114,6 +129,7 @@ def run_bot():
             )
             logger.info("✅ Bot is polling and ready!")
 
+            # Keep thread alive
             while bot_running:
                 time.sleep(10)
                 logger.debug("Bot thread heartbeat - lock held")
@@ -139,6 +155,7 @@ def start_bot_thread():
 
 start_bot_thread()
 
+# ==================== Flask Web Server ====================
 @app.route('/health', methods=['GET'])
 def health():
     thread_alive = bot_thread.is_alive() if bot_thread else False
@@ -154,4 +171,5 @@ def index():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
+    logger.info(f"Starting Flask on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
