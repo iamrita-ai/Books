@@ -10,10 +10,10 @@ OWNER_USERNAME = os.getenv("OWNER_USERNAME", "@Xioqui_xin")
 API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH")
 
-FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL")
+FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL")  # e.g., @serenaunzip
 SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL", 0))
 LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
-REQUEST_GROUP = os.getenv("REQUEST_GROUP")  # e.g., @requestgroup or full invite link
+REQUEST_GROUP = os.getenv("REQUEST_GROUP")          # e.g., @requestgroup or invite link
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 RESULTS_PER_PAGE = 10
