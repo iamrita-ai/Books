@@ -66,7 +66,11 @@ def cute_border():
     """Return a cute border line."""
     return "·͙*̩̩͙˚̩̥̩̥*̩̩̥͙　✩　*̩̩̥͙˚̩̥̩̥*̩̩͙‧͙"
 
-# ==================== EXISTING FUNCTIONS (unchanged) ====================
+def romantic_heart():
+    """Return a romantic heart decoration."""
+    return "𓆩♡𓆪"
+
+# ==================== EXISTING FUNCTIONS ====================
 
 def normalize_name(name: str) -> str:
     name = name.lower()
