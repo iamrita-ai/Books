@@ -3,6 +3,9 @@ from telegram.ext import CallbackQueryHandler, CallbackContext
 from database import get_file_by_id
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE, REQUEST_GROUP
 from utils import format_size, build_info_keyboard
+import logging
+
+logger = logging.getLogger(__name__)
 
 def button_callback(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -13,11 +16,17 @@ def button_callback(update: Update, context: CallbackContext):
         file_id_num = int(data[4:])
         file_record = get_file_by_id(file_id_num)
         if file_record:
+            # Send the PDF
             context.bot.send_document(
                 chat_id=query.message.chat_id,
                 document=file_record['file_id'],
                 reply_to_message_id=query.message.message_id
             )
+            # ✅ Delete the results message after sending PDF
+            try:
+                query.message.delete()
+            except Exception as e:
+                logger.error(f"Failed to delete message: {e}")
         else:
             query.edit_message_text("❌ File not found.")
 
