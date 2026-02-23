@@ -93,9 +93,7 @@ def run_bot():
             dp.add_handler(group_message_handler_obj)
             dp.add_handler(callback_handler)
 
-            # Job queue for auto-delete and scheduled tasks
-            job_queue = updater.job_queue
-
+            # ✅ CORRECT ERROR CALLBACK (update, context)
             def error_callback(update, context):
                 try:
                     if update is not None:
