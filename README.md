@@ -122,7 +122,7 @@ After deployment, visit https://your-app.onrender.com/health to see it alive.
 ═══════🪼⋆.ೃ࿔*:･ િ⁀➴ ☕︎ ═══════
 
 📁 𝐏𝐫𝐨𝐣𝐞𝐜𝐭 𝐒𝐭𝐫𝐮𝐜𝐭𝐮𝐫𝐞
-###
+```
 📦 pdf-library-bot
 ├── 📄 app.py                  # Main Flask app with bot thread
 ├── 📄 config.py               # Environment variables
@@ -139,7 +139,7 @@ After deployment, visit https://your-app.onrender.com/health to see it alive.
 ├── 📄 Dockerfile              # Docker configuration
 ├── 📄 .env.example            # Example environment variables
 └── 📄 README.md               # You’re reading it, darling!
-###
+```
 Storage-friendly: Even with 10,000 books, database stays under 5 MB.
 
 ═══════🪼⋆.ೃ࿔*:･ િ⁀➴ ☕︎ ═══════
