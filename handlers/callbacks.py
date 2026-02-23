@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CallbackQueryHandler, CallbackContext
-from database import get_file_by_id
+from database import get_file_by_id, increment_download
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE, REQUEST_GROUP
 from utils import format_size, build_info_keyboard
 import logging
@@ -22,6 +22,12 @@ def button_callback(update: Update, context: CallbackContext):
                 document=file_record['file_id'],
                 reply_to_message_id=query.message.message_id
             )
+            # Track download
+            try:
+                user_id = update.effective_user.id
+                increment_download(file_id_num, user_id)
+            except Exception as e:
+                logger.error(f"Failed to track download: {e}")
             # ✅ Delete the results message after sending PDF
             try:
                 query.message.delete()
