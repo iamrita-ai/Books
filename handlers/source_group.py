@@ -2,7 +2,7 @@ from telegram.ext import MessageHandler, Filters
 from telegram import Update, ParseMode
 from config import SOURCE_CHANNELS, MAX_FILE_SIZE, LOG_CHANNEL
 from database import add_file
-from utils import log_to_channel, format_size
+from utils import log_to_channel, format_size, safe_reply_text
 import logging
 import traceback
 
@@ -41,18 +41,18 @@ def source_group_handler(update: Update, context):
 
         if added:
             logger.info(f"✅ File added to database: {doc.file_name}")
-            message.reply_text(
+            safe_reply_text(
+                message,
                 f"✅ **PDF Saved Successfully!**\n📄 `{doc.file_name}`\n📦 Size: {format_size(doc.file_size)}",
-                parse_mode=ParseMode.MARKDOWN,
-                reply_to_message_id=message.message_id
+                parse_mode=ParseMode.MARKDOWN
             )
             log_to_channel(context.bot, f"📚 New PDF added: {doc.file_name}\nSize: {format_size(doc.file_size)}")
         else:
             logger.info(f"⚠️ Duplicate file: {doc.file_name}")
-            message.reply_text(
+            safe_reply_text(
+                message,
                 "⚠️ This PDF is already in the database.",
-                parse_mode=ParseMode.MARKDOWN,
-                reply_to_message_id=message.message_id
+                parse_mode=ParseMode.MARKDOWN
             )
 
     except Exception as e:
