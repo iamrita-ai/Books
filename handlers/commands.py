@@ -71,7 +71,8 @@ def send_results_page(update: Update, context: CallbackContext, page):
 
     info_buttons = build_info_keyboard()
     if info_buttons:
-        keyboard.append(info_buttons)
+        # info_buttons is a list of rows, so extend keyboard
+        keyboard.extend(info_buttons)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
@@ -86,7 +87,6 @@ def start(update: Update, context):
     user = update.effective_user
     update_user(user.id, user.first_name, user.username)
 
-    # Show typing animation
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
     if update.effective_chat.type == "private":
@@ -193,7 +193,11 @@ def book_search(update: Update, context):
         return
     context.user_data['search_results'] = results
     context.user_data['current_page'] = 0
-    send_results_page(update, context, 0)
+    try:
+        send_results_page(update, context, 0)
+    except Exception as e:
+        logger.error(f"Error in book_search send_results_page: {e}", exc_info=True)
+        update.message.reply_text("❌ An error occurred while displaying results.")
 
 def random_book(update: Update, context):
     book = get_random_book()
@@ -388,7 +392,6 @@ def warn_user(update: Update, context):
 # ==================== Group Welcome Handler ====================
 
 def new_chat_members(update: Update, context):
-    """Send welcome message when bot is added to a group."""
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
             update.message.reply_text(
