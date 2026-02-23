@@ -1,124 +1,102 @@
-# 📚 PDF Library Bot – Telegram Book & PDF Bot
+# 𓍯𓂃♡ִֶָ  ⋆ ˚｡⋆୨୧˚  📚 PDF Library Bot  ˚୨୧⋆｡˚ ⋆  𓍯𓂃♡ִֶָ
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-blue.svg" />
-  <img src="https://img.shields.io/badge/python-3.11-green.svg" />
-  <img src="https://img.shields.io/badge/telegram-bot-2CA5E0.svg" />
-  <img src="https://img.shields.io/badge/Render-deployed-success.svg" />
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
+  <img src="https://img.shields.io/badge/Telegram%20Bot-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" />
+  <img src="https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white" />
 </p>
 
 <p align="center">
-  <b>A powerful Telegram bot that listens to source groups, stores PDF metadata, and provides instant book search with colourful inline buttons.</b>
+  <b>A beautiful, romantic Telegram bot that shares PDF books with love 💖</b><br>
+  <i>“For every book lover’s heart”</i>
 </p>
 
----
+═══════🪼⋆.ೃ࿔*:･  િ⁀➴  ☕︎  ═══════
 
-## 📋 Table of Contents
-- [✨ Features](#-features)
-- [🤖 Bot Commands](#-bot-commands)
-- [⚙️ Configuration](#️-configuration)
-- [🚀 Deploy on Render](#-deploy-on-render)
-- [📁 Project Structure](#-project-structure)
-- [👨‍💻 Credits & License](#-credits--license)
-- [📞 Support](#-support)
+## 𓆩♡𓆪  𝐀𝐛𝐨𝐮𝐭 𝐓𝐡𝐢𝐬 𝐁𝐨𝐭
 
----
+Meet your **personal PDF library assistant**, designed with love to bring you the joy of reading.  
+It listens to your whispers (`#book`, `/book`) and delivers books right into your chat, wrapped in cute buttons and sweet messages.
 
-## ✨ Features
+·͙*̩̩͙˚̩̥̩̥*̩̩̥͙　✩　*̩̩̥͙˚̩̥̩̥*̩̩͙‧͙
 
-| | Feature | Description |
-|---|---------|-------------|
-| 📥 | **Auto-save PDFs** | Listens to multiple source groups/channels and stores metadata (file_id, name, size) without downloading files. |
-| 🔍 | **Smart Search** | Search books using `#book <name>` or `/book <name>` with partial match support. |
-| 🎛️ | **Colourful Inline Buttons** | Results displayed with original filename + file size in attractive buttons. |
-| 📄 | **Pagination** | Navigate through multiple search results with next/prev buttons. |
-| ❤️ | **Animated Reactions** | Every message gets random animated reactions (big/small emojis). |
-| 📝 | **Book Requests** | Users can request books with `#request <name>` – owner gets notified. |
-| 🔐 | **Force Subscribe** | Users must join a channel before using the bot. |
-| 👤 | **Owner Contact** | Direct owner button in every menu. |
-| 📢 | **Channel & Request Group** | Quick access buttons to your channel and request group. |
-| 🛠️ | **Admin Commands** | Full suite of owner-only commands for management. |
-| 🚀 | **Ready to Deploy** | Docker + Gunicorn setup for instant deployment on Render. |
-| 💾 | **Lightweight** | Stores only metadata in SQLite – no PDF files saved. |
+## ✨  𝐅𝐞𝐚𝐭𝐮𝐫𝐞𝐬
 
----
+|  | Feature | Description |
+|--|---------|-------------|
+| 📥 | **Auto-save PDFs** | Listens to your source groups, stores only metadata (no files). |
+| 🔍 | **Smart Search** | `#book mindset` or `/book mindset` – partial matches find your treasure. |
+| 🎛️ | **Colourful Inline Buttons** | Results appear with book names and sizes, ready to tap. |
+| 📄 | **Pagination** | Flip through pages of results with ◀️ Prev / Next ▶️. |
+| ❤️ | **Romantic Replies** | Every feedback gets a sweet, heartfelt response. |
+| 📝 | **Book Requests** | `#request book name` whispers your wish to the owner. |
+| 🔐 | **Force Subscribe** | Users must join your channel to unlock the bot’s heart. |
+| 👤 | **Owner Contact** | A button to reach the one who made this all possible. |
+| 📢 | **Channel & Request Group** | Quick links to your community spaces. |
+| 🛠️ | **Admin Commands** | Full power for the owner – broadcast, lock, backup, and more. |
+| 💾 | **Auto Backup & Vacuum** | Database is automatically backed up and kept tidy. |
+| 🖼️ | **Book Preview** | If available, a preview image before the PDF. |
+| 📌 | **Bookmarks** | Save your favorite books with `/bookmark` and view them with `/mybooks`. |
+| 📊 | **Popular Categories** | See what everyone’s reading with `/categories`. |
 
-## 🤖 Bot Commands
+═══════🪼⋆.ೃ࿔*:･  િ⁀➴  ☕︎  ═══════
 
-### 👥 Public Commands
+## 🤖  𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬
 
-| Command | Description | Works In |
-|---------|-------------|----------|
-| `/start` | Welcome message with inline buttons | Private & Groups |
-| `/help` | Help and command list | Private & Groups |
-| `/stats` | Bot statistics (PDFs, users, uptime, etc.) | Groups |
-| `/book <name>` | Search for a book | Groups |
-| `#book <name>` | Alternative search tag | Groups |
-| `#request <name>` | Request a book (notifies owner) | Groups |
-| `/new_request <name>` | Request a book from private chat | Private |
-
-### 🔒 Owner Only Commands
+### 👥  𝐏𝐮𝐛𝐥𝐢𝐜 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬
 
 | Command | Description |
 |---------|-------------|
-| `/users` | Show total user count |
-| `/broadcast <msg>` | Send message to all users |
-| `/lock` | Lock bot (only owner can use) |
-| `/unlock` | Unlock bot |
-| `/export` | Export database file |
-| `/delete_db` | Delete all data (requires confirmation) |
-| `/confirm_delete` | Confirm database deletion |
+| `/start` | A warm welcome, just for you. |
+| `/help` | Everything you need to know. |
+| `/stats` | Our love story in numbers. |
+| `/book <name>` | Search my heart for a book. |
+| `#book <name>` | Same thing, darling. |
+| `#request <name>` | Ask me for a new book. |
+| `/random` | A surprise just for you. |
+| `/top` | Most loved books by our community. |
+| `/feedback <id> <rating> [comment]` | Tell me how you feel (1-5 stars). |
+| `/bookmark <id>` | Save a book to your heart. |
+| `/mybooks` | See the books you’ve cherished. |
+| `/categories` | Explore popular categories. |
 
----
+### 👑  𝐎𝐰𝐧𝐞𝐫 𝐎𝐧𝐥𝐲
 
-## ⚙️ Configuration
+| Command | Description |
+|---------|-------------|
+| `/users` | How many hearts I’ve touched. |
+| `/broadcast <msg>` | Send a message to all. |
+| `/lock` / `/unlock` | Lock or unlock me. |
+| `/import` | Import my soul (reply to .db file). |
+| `/export` | Export my memories. |
+| `/delete_db` | Erase everything (requires confirmation). |
+| `/warn <user_id> <reason>` | Warn a naughty user. |
+| `/backup` | Manual backup of my heart. |
+| `/vacuum` | Clean my database. |
 
-### Environment Variables
+·͙*̩̩͙˚̩̥̩̥*̩̩̥͙　✩　*̩̩̥͙˚̩̥̩̥*̩̩͙‧͙
 
-Create a `.env` file or set these in Render dashboard:
+## 🚀  𝐃𝐞𝐩𝐥𝐨𝐲 𝐨𝐧 𝐑𝐞𝐧𝐝𝐞𝐫 (𝐃𝐨𝐜𝐤𝐞𝐫)
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `BOT_TOKEN` | ✅ | Bot token from [@BotFather](https://t.me/botfather) | `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
-| `OWNER_ID` | ✅ | Your Telegram numeric ID | `123456789` |
-| `OWNER_USERNAME` | ✅ | Your Telegram username (with @) | `@Xioqui_xin` |
-| `FORCE_SUB_CHANNEL` | ✅ | Channel users must join | `@serenaunzip` |
-| `SOURCE_CHANNELS` | ✅ | Comma-separated numeric IDs of source groups | `-1003745290301,-1003412208912` |
-| `LOG_CHANNEL` | ❌ | Channel ID for logs | `-1001234567890` |
-| `REQUEST_GROUP` | ❌ | Link or @username for request group | `@requestgroup` |
-| `BOT_NAME` | ❌ | Custom bot name | `📚 PDF Library Bot` |
+### 1.  𝐅𝐨𝐫𝐤 / 𝐂𝐥𝐨𝐧𝐞
 
-> ⚠️ **Important**:  
-> - `SOURCE_CHANNELS` must be **numeric IDs** (e.g., `-1001234567890`). Get them from [@getidsbot](https://t.me/getidsbot).  
-> - Bot must be **a member** of these source groups.  
-> - **Group Privacy must be OFF** for the bot to read messages (configure via BotFather).
-
----
-
-## 🚀 Deploy on Render
-
-### Step 1: Fork or Clone Repository
 ```bash
 git clone https://github.com/SerenaXdev/pdf-library-bot.git
 cd pdf-library-bot
+```
 
+2. 𝐏𝐮𝐬𝐡 𝐭𝐨 𝐘𝐨𝐮𝐫 𝐆𝐢𝐭𝐇𝐮𝐛
+3. 𝐂𝐫𝐞𝐚𝐭𝐞 𝐚 𝐖𝐞𝐛 𝐒𝐞𝐫𝐯𝐢𝐜𝐞 𝐨𝐧 𝐑𝐞𝐧𝐝𝐞𝐫
+Click New + → Web Service.
 
-
-Step 2: Push to Your GitHub
-Step 3: Create New Web Service on Render
-Go to Render Dashboard
-
-Click New + → Web Service
-
-Connect your GitHub repository
-
-Configure:
-
-Name: your-bot-name
+Connect your GitHub repository.
 
 Environment: Docker (auto-detected)
 
-Region: choose closest
+Name: your-bot-name
+
+Region: closest to you
 
 Branch: main
 
@@ -126,52 +104,14 @@ Build Command: leave blank
 
 Start Command: leave blank
 
-Instance Type: Free (or paid)
-
-Step 4: Add Environment Variables
-Add all variables from the Configuration section.
-
-Step 5: Deploy
-Click Create Web Service. Render will build and deploy your bot.
-
-✅ After deployment, visit https://your-app.onrender.com/health to verify status.
-
-
-👨‍💻 Credits & License
-<p align="center"> <b>Created with ❤️ by <a href="https://github.com/SerenaXdev">SerenaXdev</a></b> </p>
-text
-© 2025 SerenaXdev. All Rights Reserved.
-📝 Terms & Conditions
-✅ You may use this code personally or for your own bot.
-
-✅ You must give proper credit to the original author (SerenaXdev).
-
-✅ You may modify the code for your needs.
-
-❌ You may NOT claim this code as your own.
-
-❌ You may NOT redistribute without credit.
-
-❌ Commercial use requires explicit permission.
-
-By using this code, you agree to these terms.
-
-📞 Support
-🐛 Found a bug? Open an issue
-
-💬 Questions? Contact @Xioqui_xin
-
-⭐ Like this project? Star on GitHub!
-
-
-
-
-
-📊 Bot Statistics
-Metric	Value
-Python	3.11
-Database	SQLite
-Framework	python-telegram-bot v13.15
-Hosting	Render (Docker)
-File Size Limit	100 MB
-<p align="center"> <b>📚 Happy Reading! 📚</b><br> <i>Made with ❤️ by SerenaXdev</i> </p> ```
+4. 𝐀𝐝𝐝 𝐄𝐧𝐯𝐢𝐫𝐨𝐧𝐦𝐞𝐧𝐭 𝐕𝐚𝐫𝐢𝐚𝐛𝐥𝐞𝐬
+Variable	Description	Example
+BOT_TOKEN	From @BotFather	123456:ABC-DEF1234
+OWNER_ID	Your Telegram numeric ID	123456789
+OWNER_USERNAME	Your Telegram username	@Xioqui_xin
+FORCE_SUB_CHANNEL	Channel users must join	@serenaunzip
+SOURCE_CHANNELS	Comma-separated numeric group IDs	-1001234567890,-100987654321
+LOG_CHANNEL	(Optional) Channel ID for logs	-1001234567890
+REQUEST_GROUP	(Optional) Request group link/username	@requestgroup
+BOT_NAME	(Optional) Your bot’s name	📚 PDF Library Bot
+5. 𝐃𝐞𝐩𝐥𝐨𝐲
