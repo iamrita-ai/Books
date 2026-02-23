@@ -6,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def inline_query(update: Update, context):
+def inline_query(update: Update, context: CallbackContext):
     query = update.inline_query.query
     if not query:
         return
