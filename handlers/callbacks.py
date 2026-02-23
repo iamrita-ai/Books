@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMo
 from telegram.ext import CallbackQueryHandler, CallbackContext
 from database import get_file_by_id, increment_download
 from config import OWNER_ID, FORCE_SUB_CHANNEL, RESULTS_PER_PAGE, REQUEST_GROUP
-from utils import format_size, build_info_keyboard, safe_send_message
+from utils import format_size, build_info_keyboard
 import logging
 
 logger = logging.getLogger(__name__)
