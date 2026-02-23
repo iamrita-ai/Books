@@ -417,4 +417,9 @@ def get_handlers():
         CommandHandler("confirm_delete", confirm_delete, Filters.chat_type.groups),
         CommandHandler("new_request", new_request, Filters.chat_type.private),
         CommandHandler("book", book_search, Filters.chat_type.groups),
-        CommandHandler("random", random_book, Filters.chat_typ
+        CommandHandler("random", random_book, Filters.chat_type.groups),
+        CommandHandler("top", top_books, Filters.chat_type.groups),
+        CommandHandler("feedback", feedback, Filters.chat_type.groups),
+        CommandHandler("warn", warn_user, Filters.chat_type.groups),
+        MessageHandler(Filters.status_update.new_chat_members, new_chat_members),
+    ]
