@@ -1,7 +1,7 @@
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.ext import InlineQueryHandler, CallbackContext
 from database import search_files
-from utils import format_size
+from utils import format_size, romantic_heart
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def inline_query(update: Update, context: CallbackContext):
                 title=book['original_filename'],
                 description=f"Size: {format_size(book['file_size'])}",
                 input_message_content=InputTextMessageContent(
-                    f"📘 <b>{book['original_filename']}</b>\n📦 {format_size(book['file_size'])}",
+                    f"📘 <b>{book['original_filename']}</b>\n📦 {format_size(book['file_size'])}\n\n{romantic_heart()} Enjoy your book, darling!",
                     parse_mode='HTML'
                 )
             )
