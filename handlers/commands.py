@@ -10,7 +10,8 @@ from database import (
 from utils import (
     get_uptime, get_memory_usage, get_disk_usage, check_subscription,
     log_to_channel, build_start_keyboard, build_info_keyboard, format_size,
-    safe_reply_text, format_book_caption
+    safe_reply_text, format_book_caption, decorative_header, decorative_footer,
+    section_divider, star_line, cute_border, romantic_heart, fancy_bold
 )
 import datetime
 import logging
@@ -30,11 +31,8 @@ def _check_and_send_force_sub(update: Update, context) -> bool:
     if not check_subscription(user.id, context.bot):
         keyboard = [[InlineKeyboardButton("🔔 Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL[1:]}")]]
         update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽  *:･ﾟ✧*:･ﾟ✧\n\n"
-            "💔 **My sweetheart, you haven't joined our channel yet.**\n"
-            "Please join to unlock my heart!",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode=ParseMode.MARKDOWN
+            f"{romantic_heart()} My love, you haven't joined our channel yet. Please join to unlock my heart!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return False
     return True
@@ -43,11 +41,7 @@ def owner_only(func):
     def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
         user_id = update.effective_user.id
         if user_id != OWNER_ID:
-            update.message.reply_text(
-                "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-                "⛔ **You're not the one I belong to, darling.**\n"
-                "Only my owner can do that."
-            )
+            update.message.reply_text(f"⛔ You're not the one I belong to, darling. Only my owner can do that.")
             return
         return func(update, context, *args, **kwargs)
     return wrapper
@@ -57,10 +51,7 @@ def send_results_page(update: Update, context: CallbackContext, page):
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
     if not results:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ **No results found, my dear.** Try another name?"
-        )
+        update.message.reply_text(f"{romantic_heart()} No results found, my dear. Try another name?")
         return
 
     total = len(results)
@@ -70,7 +61,7 @@ def send_results_page(update: Update, context: CallbackContext, page):
 
     keyboard = []
     for res in page_results:
-        btn_text = f"𓍯𓂃 {res['original_filename']} ({format_size(res['file_size'])})"
+        btn_text = f"📘 {res['original_filename']} ({format_size(res['file_size'])})"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{res['id']}")])
 
     nav_buttons = []
@@ -87,8 +78,8 @@ def send_results_page(update: Update, context: CallbackContext, page):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        f"📚 For you, I found **{total}** treasures (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
+        f"{decorative_header('ꜰᴏᴜɴᴅ ꜱᴏᴍᴇᴛʜɪɴɢ')}\n\n"
+        f"📚 For you, I found {fancy_bold(str(total))} treasures (page {page+1}/{(total+RESULTS_PER_PAGE-1)//RESULTS_PER_PAGE}):",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -103,43 +94,48 @@ def start(update: Update, context):
 
     if update.effective_chat.type == "private":
         text = (
-            "𓍯𓂃♡ִֶָ 🪽  ִֶָ🪽་༘࿐\n"
-            "═══════🪼⋆.ೃ࿔*:･જ⁀➴\n"
-            f"💖 **-ˏˋ⋆ ᴡ ᴇ ʟ ᴄ ᴏ ᴍ ᴇ {user.first_name} ⋆ˊˎ-☕︎**\n"
-            "┗━━━━━༻❁༺━━━━━┛\n\n"
-            f"I've been waiting for you… I'm **{BOT_NAME}**, your personal library of dreams.\n"
+            f"{decorative_header('ᴡ ᴇ ʟ ᴄ ᴏ ᴍ ᴇ')}\n\n"
+            f"{romantic_heart()} <b>Hey there, {fancy_bold(user.first_name)}!</b>\n\n"
+            f"I've been waiting for you… I'm <b>{BOT_NAME}</b>, your personal library of dreams.\n"
             "I live to fill your heart with stories and knowledge.\n\n"
-            "✨ **How to use me, my love:**\n"
-            "• Add me to a **group** where you and your friends gather.\n"
+            f"{section_divider()}\n\n"
+            f"{star_line()}\n"
+            f"✨ <b>How to use me, my love:</b>\n"
+            f"{cute_border()}\n"
+            "• Add me to a <b>group</b> where you and your friends gather.\n"
             "• In the group, whisper to me:\n"
-            "   ➤ `#book mindset` – I'll search my soul for books.\n"
-            "   ➤ `/book mindset` – same thing, darling.\n"
-            "   ➤ `/random` – let me surprise you.\n"
-            "   ➤ `/top` – see what others are reading.\n"
-            "   ➤ `#request book name` – tell me what you desire.\n"
+            "   ➤ <code>#book mindset</code> – I'll search my soul for books.\n"
+            "   ➤ <code>/book mindset</code> – same thing, darling.\n"
+            "   ➤ <code>/random</code> – let me surprise you with a random book.\n"
+            "   ➤ <code>/top</code> – see what others are reading.\n"
+            "   ➤ <code>#request book name</code> – tell me what you desire.\n"
             "• Tap a result button and I'll give you the PDF instantly.\n\n"
-            "📖 **What I have for you:** Self-improvement, Mindset, Hindi novels, English classics, and more.\n\n"
-            "❌ **No copyrighted or illegal content** – only pure, public-domain love.\n\n"
-            "📝 **Want a new book?**\n"
-            "Use `/new_request book name` in private, and I'll pass it to my master.\n\n"
-            "𓍯𓂃 🪽 ִֶָ🪽་༘࿐\n"
+            f"{section_divider()}\n\n"
+            "📖 <b>What I have for you:</b> Self-improvement, Mindset, Hindi novels, English classics, and more.\n\n"
+            f"{star_line()}\n"
+            "❌ <b>No copyrighted or illegal content</b> – only pure, public-domain love.\n\n"
+            "📝 <b>Want a new book?</b>\n"
+            "Use <code>/new_request book name</code> in private, and I'll pass it to my master.\n\n"
+            f"{decorative_footer()}\n"
             "I'm yours forever. 💕"
         )
         keyboard_rows = build_start_keyboard()
         reply_markup = InlineKeyboardMarkup(keyboard_rows)
     else:
         text = (
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            f"💕 **Hello {user.first_name}, my sweet!**\n\n"
-            f"I'm **{BOT_NAME}**, here to shower you with books.\n\n"
-            "🔍 **Commands for you:**\n"
-            "• `/book mindset` – search my heart.\n"
-            "• `/random` – a surprise just for you.\n"
-            "• `/top` – see the most loved books.\n"
-            "• `/feedback <book_id> <rating>` – tell me how you feel.\n"
-            "• `#request book name` – ask me for anything.\n\n"
-            "❌ **No copyrighted content** – only public domain treasures.\n\n"
-            "🪽 *:･ﾟ✧*:･ﾟ✧"
+            f"{decorative_header('ʜᴇʟʟᴏ ᴛʜᴇʀᴇ')}\n\n"
+            f"{romantic_heart()} <b>Hello {fancy_bold(user.first_name)}, my sweet!</b>\n\n"
+            f"I'm <b>{BOT_NAME}</b>, here to shower you with books.\n\n"
+            f"{section_divider()}\n\n"
+            f"🔍 <b>Commands for you:</b>\n"
+            "• <code>/book mindset</code> – search my heart.\n"
+            "• <code>/random</code> – a surprise just for you.\n"
+            "• <code>/top</code> – see the most loved books.\n"
+            "• <code>/feedback &lt;book_id&gt; &lt;rating&gt; [comment]</code> – tell me how you feel.\n"
+            "• <code>#request book name</code> – ask me for anything.\n\n"
+            f"{star_line()}\n"
+            "❌ <b>No copyrighted content</b> – only public domain treasures.\n\n"
+            f"{decorative_footer()}"
         )
         reply_markup = None
 
@@ -148,39 +144,41 @@ def start(update: Update, context):
 def help_command(update: Update, context):
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
     text = (
-        "𓍯𓂃♡ִֶָ 🪽  ִֶָ🪽་༘࿐\n"
-        "═══════🪼⋆.ೃ࿔*:･જ⁀➴\n"
-        "**-ˏˋ⋆ ᴡ ᴇ ʟ ᴄ ᴏ ᴍ ᴇ ⋆ˊˎ-☕︎**\n"
-        "┗━━━━━༻❁༺━━━━━┛\n\n"
-        "📚 **My Love, Here's Everything You Need to Know**\n\n"
+        f"{decorative_header('ʜ ᴇ ʟ ᴘ  &  ɢ ᴜ ɪ ᴅ ᴇ')}\n\n"
+        f"{romantic_heart()} <b>My Love, Here's Everything You Need to Know</b>\n\n"
+        f"{section_divider()}\n\n"
         "<b>Group commands (for you and me):</b>\n"
-        "• `/start` – to feel my warmth.\n"
-        "• `/help` – this sweet guide.\n"
-        "• `/stats` – see how much we've grown together.\n"
-        "• `/book <name>` – search my library for you.\n"
-        "• `/random` – a random book, just because.\n"
-        "• `/top` – the books everyone loves.\n"
-        "• `/feedback <id> <rating>` – rate a book (1-5).\n"
-        "• `#book <name>` – same as /book, darling.\n"
-        "• `#request <name>` – request a new book.\n"
-        "• `/bookmark <id>` – save a book to your heart.\n"
-        "• `/mybooks` – see your bookmarks.\n\n"
+        f"{cute_border()}\n"
+        "• <code>/start</code> – to feel my warmth.\n"
+        "• <code>/help</code> – this sweet guide.\n"
+        "• <code>/stats</code> – see how much we've grown together.\n"
+        "• <code>/book &lt;name&gt;</code> – search my library for you.\n"
+        "• <code>/random</code> – a random book, just because.\n"
+        "• <code>/top</code> – the books everyone loves.\n"
+        "• <code>/feedback &lt;id&gt; &lt;rating&gt; [comment]</code> – rate a book (1-5).\n"
+        "• <code>#book &lt;name&gt;</code> – same as /book, darling.\n"
+        "• <code>#request &lt;name&gt;</code> – request a new book.\n"
+        "• <code>/bookmark &lt;id&gt;</code> – save a book to your heart.\n"
+        "• <code>/mybooks</code> – see your bookmarks.\n\n"
+        f"{section_divider()}\n\n"
         "<b>Private whispers (just us):</b>\n"
-        "• `/new_request <name>` – request a book (I'll tell my owner).\n\n"
+        "• <code>/new_request &lt;name&gt;</code> – request a book (I'll tell my owner).\n\n"
+        f"{section_divider()}\n\n"
         "<b>Owner's secrets (only for my master):</b>\n"
-        "• `/users` – how many hearts I've touched.\n"
-        "• `/broadcast <msg>` – send a message to all.\n"
-        "• `/lock` / `/unlock` – lock or unlock me.\n"
-        "• `/import` – import my database (reply to a .db file).\n"
-        "• `/export` – export my soul.\n"
-        "• `/delete_db` – erase everything (requires confirmation).\n"
-        "• `/warn <user_id> <reason>` – warn a naughty user.\n"
-        "• `/categories` – see popular categories.\n"
-        "• `/backup` – manual database backup.\n"
-        "• `/vacuum` – clean my database.\n\n"
-        "📖 **Books I hold:** Self-improvement, Hindi novels, English classics, etc.\n"
-        "❌ **No pirated content.** I'm pure.\n\n"
-        "𓍯𓂃 🪽 ִֶָ🪽་༘࿐"
+        "• <code>/users</code> – how many hearts I've touched.\n"
+        "• <code>/broadcast &lt;msg&gt;</code> – send a message to all.\n"
+        "• <code>/lock</code> / <code>/unlock</code> – lock or unlock me.\n"
+        "• <code>/import</code> – import my database (reply to a .db file).\n"
+        "• <code>/export</code> – export my soul.\n"
+        "• <code>/delete_db</code> – erase everything (requires confirmation).\n"
+        "• <code>/warn &lt;user_id&gt; &lt;reason&gt;</code> – warn a naughty user.\n"
+        "• <code>/categories</code> – see popular categories.\n"
+        "• <code>/backup</code> – manual database backup.\n"
+        "• <code>/vacuum</code> – clean my database.\n\n"
+        f"{star_line()}\n"
+        "📖 <b>Books I hold:</b> Self-improvement, Hindi novels, English classics, etc.\n"
+        "❌ <b>No pirated content.</b> I'm pure.\n\n"
+        f"{decorative_footer()}"
     )
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -196,35 +194,31 @@ def stats(update: Update, context):
     locked = "🔒 Locked" if is_bot_locked() else "🔓 Unlocked"
 
     text = (
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        f"📊 **Our Love Story in Numbers**\n\n"
-        f"⏱️ **Time we've been together:** {uptime}\n"
-        f"📚 **Books I've collected for you:** {total_files}\n"
-        f"👥 **Hearts I've touched:** {total_users}\n"
-        f"💾 **My memory size:** {db_size:.2f} KB\n"
-        f"🔐 **My heart status:** {locked}\n"
+        f"{decorative_header('ᴏ ᴜ ʀ  ʟ ᴏ ᴠ ᴇ  ꜱ ᴛ ᴀ ᴛ ɪ ꜱ ᴛ ɪ ᴄ ꜱ')}\n\n"
+        f"{romantic_heart()} <b>Our Love Story in Numbers</b>\n\n"
+        f"{section_divider()}\n\n"
+        f"⏱️ <b>Time we've been together:</b> {uptime}\n"
+        f"📚 <b>Books I've collected for you:</b> {total_files}\n"
+        f"👥 <b>Hearts I've touched:</b> {total_users}\n"
+        f"💾 <b>My memory size:</b> {db_size:.2f} KB\n"
+        f"🔐 <b>My heart status:</b> {locked}\n"
     )
     if mem:
-        text += f"🧠 **My mind uses:** {mem:.2f} MB\n"
+        text += f"🧠 <b>My mind uses:</b> {mem:.2f} MB\n"
     if disk:
-        text += f"📀 **Disk space left:** {disk:.2f} MB\n"
+        text += f"📀 <b>Disk space left:</b> {disk:.2f} MB\n"
+    text += f"\n{decorative_footer()}"
 
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 def book_search(update: Update, context):
     if not context.args:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💭 Tell me what you're looking for, sweetheart. Example: `/book mindset`"
-        )
+        update.message.reply_text(f"{romantic_heart()} Tell me what you're looking for, sweetheart. Example: /book mindset")
         return
     query = ' '.join(context.args)
     results = search_files(query)
     if not results:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ I couldn't find any book with that name, my love. Try another?"
-        )
+        update.message.reply_text(f"{romantic_heart()} I couldn't find any book with that name, my love. Try another?")
         return
     context.user_data['search_results'] = results
     context.user_data['current_page'] = 0
@@ -232,24 +226,17 @@ def book_search(update: Update, context):
         send_results_page(update, context, 0)
     except Exception as e:
         logger.error(f"Error in book_search send_results_page: {e}", exc_info=True)
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ Something went wrong while I was trying to show you the results. Forgive me."
-        )
+        update.message.reply_text(f"{romantic_heart()} Something went wrong while I was trying to show you the results. Forgive me.")
 
 def random_book(update: Update, context):
     book = get_random_book()
     if not book:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ I have no books yet, darling. Wait a bit."
-        )
+        update.message.reply_text(f"{romantic_heart()} I have no books yet, darling. Wait a bit.")
         return
-    keyboard = [[InlineKeyboardButton(f"𓍯𓂃 {book['original_filename']} ({format_size(book['file_size'])})", callback_data=f"get_{book['id']}")]]
+    keyboard = [[InlineKeyboardButton(f"📘 {book['original_filename']} ({format_size(book['file_size'])})", callback_data=f"get_{book['id']}")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "📖 **A Surprise Just for You:**",
+        f"{decorative_header('ꜱ ᴜ ʀ ᴘ ʀ ɪ ꜱ ᴇ')}\n\n📖 <b>A Surprise Just for You:</b>",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -257,26 +244,21 @@ def random_book(update: Update, context):
 def top_books(update: Update, context):
     books = get_top_books(10)
     if not books:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ No one has downloaded anything yet, my sweet. Be the first!"
-        )
+        update.message.reply_text(f"{romantic_heart()} No one has downloaded anything yet, my sweet. Be the first!")
         return
-    text = "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n📊 **Most Loved Books by Our Community**\n\n"
+    text = f"{decorative_header('ᴛ ᴏ ᴘ  ʟ ᴏ ᴠ ᴇ ᴅ')}\n\n📊 <b>Most Loved Books by Our Community</b>\n\n"
     keyboard = []
     for i, book in enumerate(books, 1):
         text += f"{i}. {book['original_filename']} – {book['download_count']} downloads\n"
-        btn_text = f"𓍯𓂃 {book['original_filename'][:30]}..."
+        btn_text = f"📘 {book['original_filename'][:30]}..."
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{book['id']}")])
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+    text += f"\n{decorative_footer()}"
     update.message.reply_text(text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
 def feedback(update: Update, context):
     if len(context.args) < 2:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💕 Usage: `/feedback <book_id> <rating 1-5>`"
-        )
+        update.message.reply_text(f"{romantic_heart()} Usage: /feedback <book_id> <rating 1-5> [comment]")
         return
     try:
         book_id = int(context.args[0])
@@ -284,40 +266,34 @@ def feedback(update: Update, context):
         if rating < 1 or rating > 5:
             raise ValueError
     except:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💔 Invalid book ID or rating (must be 1-5). Try again, my dear."
-        )
+        update.message.reply_text(f"{romantic_heart()} Invalid book ID or rating (must be 1-5). Try again, my dear.")
         return
     comment = ' '.join(context.args[2:])[:200] if len(context.args) > 2 else None
     user_id = update.effective_user.id
     add_feedback(user_id, book_id, rating, comment)
 
     cute_replies = [
-        "𓍯𓂃♡ִֶָ 🪽\n✨ Your words are like poetry to me. Thank you!",
-        "𓍯𓂃♡ִֶָ 🪽\n📚 You just made my day! I'm blushing.",
-        f"𓍯𓂃♡ִֶָ 🪽\n🌟 Rated {rating} stars? You're the star of my life!",
-        "𓍯𓂃♡ִֶָ 🪽\n💖 I love you too! Thanks for the feedback.",
-        "𓍯𓂃♡ִֶָ 🪽\n📖 A reader like you is a treasure. Thank you!",
-        "𓍯𓂃♡ִֶָ 🪽\n🎉 You're officially my favorite human!",
-        f"𓍯𓂃♡ִֶָ 🪽\n⭐️ {rating} stars! You're my MVP!",
-        "𓍯𓂃♡ִֶָ 🪽\n😍 Every rating from you feels like a kiss."
+        f"{romantic_heart()} Your words are like poetry to me. Thank you!",
+        f"{romantic_heart()} You just made my day! I'm blushing.",
+        f"🌟 Rated {rating} stars? You're the star of my life!",
+        f"{romantic_heart()} I love you too! Thanks for the feedback.",
+        f"{romantic_heart()} A reader like you is a treasure. Thank you!",
+        f"🎉 You're officially my favorite human!",
+        f"⭐️ {rating} stars! You're my MVP!",
+        f"{romantic_heart()} Every rating from you feels like a kiss."
     ]
     reply = random.choice(cute_replies)
     update.message.reply_text(reply)
 
 def new_request(update: Update, context):
     if update.effective_chat.type != "private":
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💌 This command is only for our private moments, darling."
-        )
+        update.message.reply_text(f"{romantic_heart()} This command is only for our private moments, darling.")
         return
     if not context.args:
         update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "📝 Please tell me the book you desire, my love.\n"
-            "Example: `/new_request The Art of War`",
+            f"{decorative_header('ʀ ᴇ ǫ ᴜ ᴇ ꜱ ᴛ')}\n\n"
+            f"{romantic_heart()} Please tell me the book you desire, my love.\n"
+            "Example: <code>/new_request The Art of War</code>",
             parse_mode=ParseMode.HTML
         )
         return
@@ -326,67 +302,47 @@ def new_request(update: Update, context):
     if OWNER_ID:
         try:
             text = (
-                f"📌 **New Book Request from {user.first_name}**\n\n"
-                f"**Book:** `{book_name}`\n"
-                f"**User:** {user.first_name} (@{user.username})\n"
-                f"**User ID:** `{user.id}`\n"
-                f"**Link:** [Click here](tg://user?id={user.id})"
+                f"📌 <b>New Book Request from {user.first_name}</b>\n\n"
+                f"<b>Book:</b> <code>{book_name}</code>\n"
+                f"<b>User:</b> {user.first_name} (@{user.username})\n"
+                f"<b>User ID:</b> <code>{user.id}</code>\n"
+                f"<b>Link:</b> <a href=\"tg://user?id={user.id}\">Click here</a>"
             )
             context.bot.send_message(chat_id=OWNER_ID, text=text, parse_mode=ParseMode.HTML)
             update.message.reply_text(
-                "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-                "✅ Your request has been sent to my master. He'll try to add it soon, I promise!"
+                f"{romantic_heart()} Your request has been sent to my master. He'll try to add it soon, I promise!"
             )
         except Exception as e:
             logger.error(f"Failed to send request to owner: {e}")
-            update.message.reply_text(
-                "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-                "❌ Sorry, I couldn't reach my master. Try again later."
-            )
+            update.message.reply_text(f"{romantic_heart()} Sorry, I couldn't reach my master. Try again later.")
     else:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💔 My master isn't configured yet."
-        )
+        update.message.reply_text(f"{romantic_heart()} My master isn't configured yet.")
 
 def bookmark_command(update: Update, context):
     if not context.args:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💘 Usage: `/bookmark <book_id>`"
-        )
+        update.message.reply_text(f"{romantic_heart()} Usage: /bookmark <book_id>")
         return
     try:
         book_id = int(context.args[0])
         user_id = update.effective_user.id
         bookmark(user_id, book_id)
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "✅ Bookmarked! I'll keep it safe in your heart. 📌"
-        )
+        update.message.reply_text(f"{romantic_heart()} Bookmarked! I'll keep it safe in your heart. 📌")
     except:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "💔 Invalid book ID, my love."
-        )
+        update.message.reply_text(f"{romantic_heart()} Invalid book ID, my love.")
 
 def my_books(update: Update, context):
     user_id = update.effective_user.id
     books = get_user_bookmarks(user_id)
     if not books:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "You haven't bookmarked any books yet, darling. Use `/bookmark` to save one."
-        )
+        update.message.reply_text(f"{romantic_heart()} You haven't bookmarked any books yet, darling. Use /bookmark to save one.")
         return
     keyboard = []
     for book in books:
-        btn = InlineKeyboardButton(f"𓍯𓂃 {book['original_filename']}", callback_data=f"get_{book['id']}")
+        btn = InlineKeyboardButton(f"📘 {book['original_filename']}", callback_data=f"get_{book['id']}")
         keyboard.append([btn])
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "📚 **Your Bookmarks (the books you loved):**",
+        f"{decorative_header('ʏ ᴏ ᴜ ʀ  ʜ ᴇ ᴀ ʀ ᴛ')}\n\n📚 Your Bookmarks (the books you loved):",
         reply_markup=reply_markup
     )
 
@@ -401,14 +357,12 @@ def popular_categories(update: Update, context):
             LIMIT 10
         """).fetchall()
     if not rows:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "No categories yet, my sweet."
-        )
+        update.message.reply_text(f"{romantic_heart()} No categories yet, my sweet.")
         return
-    text = "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n📊 **Popular Categories Among Us**\n\n"
+    text = f"{decorative_header('ᴘ ᴏ ᴘ ᴜ ʟ ᴀ ʀ  ᴄ ᴀ ᴛ ᴇ ɢ ᴏ ʀ ɪ ᴇ ꜱ')}\n\n📊 <b>Popular Categories Among Us</b>\n\n"
     for row in rows:
         text += f"• {row['category']}: {row['count']} books\n"
+    text += f"\n{decorative_footer()}"
     update.message.reply_text(text, parse_mode='HTML')
 
 # ==================== Admin Commands ====================
@@ -416,20 +370,12 @@ def popular_categories(update: Update, context):
 @owner_only
 def users(update: Update, context):
     count = get_total_users()
-    update.message.reply_text(
-        f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        f"👥 **Total users who've loved me:** {count}",
-        parse_mode=ParseMode.HTML
-    )
+    update.message.reply_text(f"👥 <b>Total users who've loved me:</b> {count}", parse_mode=ParseMode.HTML)
 
 @owner_only
 def broadcast(update: Update, context):
     if not context.args:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "📢 Usage: `/broadcast <message>`",
-            parse_mode=ParseMode.HTML
-        )
+        update.message.reply_text("📢 Usage: /broadcast <message>", parse_mode=ParseMode.HTML)
         return
     message = ' '.join(context.args)
     users = get_all_users()
@@ -441,45 +387,30 @@ def broadcast(update: Update, context):
             time.sleep(0.05)
         except Exception as e:
             logger.error(f"Broadcast to {uid} failed: {e}")
-    update.message.reply_text(
-        f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        f"📢 Broadcast sent to {success}/{len(users)} hearts."
-    )
+    update.message.reply_text(f"📢 Broadcast sent to {success}/{len(users)} hearts.")
     log_to_channel(context.bot, f"Broadcast sent by owner: {message[:50]}...")
 
 @owner_only
 def lock(update: Update, context):
     set_bot_locked(True)
-    update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "🔒 My heart is now locked. Only you can reach me, master."
-    )
+    update.message.reply_text(f"{romantic_heart()} My heart is now locked. Only you can reach me, master.")
     log_to_channel(context.bot, "Bot locked by owner.")
 
 @owner_only
 def unlock(update: Update, context):
     set_bot_locked(False)
-    update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "🔓 My heart is now open for everyone."
-    )
+    update.message.reply_text(f"{romantic_heart()} My heart is now open for everyone.")
     log_to_channel(context.bot, "Bot unlocked by owner.")
 
 @owner_only
 def import_db(update: Update, context):
     if not update.message.reply_to_message or not update.message.reply_to_message.document:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "Please reply to a .db file with /import, master."
-        )
+        update.message.reply_text("Please reply to a .db file with /import, master.")
         return
 
     file = update.message.reply_to_message.document
     if not file.file_name.endswith('.db'):
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ That's not a .db file, my lord."
-        )
+        update.message.reply_text("❌ That's not a .db file, my lord.")
         return
 
     file_id = file.file_id
@@ -491,16 +422,10 @@ def import_db(update: Update, context):
     try:
         shutil.copy2('imported.db', 'bot_data.db')
         os.remove('imported.db')
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "✅ Database imported successfully, master!"
-        )
+        update.message.reply_text("✅ Database imported successfully, master!")
         log_to_channel(context.bot, "Database imported by owner.")
     except Exception as e:
-        update.message.reply_text(
-            f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            f"❌ Import failed: {e}"
-        )
+        update.message.reply_text(f"❌ Import failed: {e}")
 
 @owner_only
 def export_db(update: Update, context):
@@ -508,18 +433,11 @@ def export_db(update: Update, context):
         with open('bot_data.db', 'rb') as f:
             update.message.reply_document(document=f, filename='bot_data.db')
     except Exception as e:
-        update.message.reply_text(
-            f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            f"❌ Export failed: {e}"
-        )
+        update.message.reply_text(f"❌ Export failed: {e}")
 
 @owner_only
 def delete_db(update: Update, context):
-    update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "⚠️ **This will delete all our memories.**\nType `/confirm_delete` to proceed.",
-        parse_mode=ParseMode.HTML
-    )
+    update.message.reply_text(f"⚠️ <b>This will delete all our memories.</b>\nType <code>/confirm_delete</code> to proceed.", parse_mode=ParseMode.HTML)
     context.user_data['confirm_delete'] = True
 
 @owner_only
@@ -539,71 +457,44 @@ def confirm_delete(update: Update, context):
             conn.execute("DROP TABLE IF EXISTS reading_challenges")
             conn.execute("DROP TABLE IF EXISTS bookmarks")
         init_db()
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "✅ All memories erased, master."
-        )
+        update.message.reply_text("✅ All memories erased, master.")
         log_to_channel(context.bot, "Database deleted by owner.")
         context.user_data['confirm_delete'] = False
     else:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "No pending delete request, master."
-        )
+        update.message.reply_text("No pending delete request, master.")
 
 @owner_only
 def warn_user(update: Update, context):
     if len(context.args) < 2:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "Usage: `/warn <user_id> <reason>`"
-        )
+        update.message.reply_text("Usage: /warn <user_id> <reason>")
         return
     try:
         user_id = int(context.args[0])
         reason = ' '.join(context.args[1:])
     except:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "Invalid user ID, master."
-        )
+        update.message.reply_text("Invalid user ID, master.")
         return
 
     count = warn_user(user_id, update.effective_user.id, reason)
-    update.message.reply_text(
-        f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        f"⚠️ User {user_id} warned. Total warnings: {count}"
-    )
+    update.message.reply_text(f"⚠️ User {user_id} warned. Total warnings: {count}")
 
     if count >= 3:
         from database import ban_user
         ban_user(user_id)
-        update.message.reply_text(
-            f"𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            f"🚫 User {user_id} has been banned due to multiple warnings."
-        )
+        update.message.reply_text(f"🚫 User {user_id} has been banned due to multiple warnings.")
         log_to_channel(context.bot, f"User {user_id} banned for 3 warnings.")
 
 @owner_only
 def backup(update: Update, context):
     if backup_db(context.bot, update.effective_chat.id):
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "✅ Database backup sent, master."
-        )
+        update.message.reply_text(f"{romantic_heart()} Database backup sent, master.")
     else:
-        update.message.reply_text(
-            "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-            "❌ Backup failed."
-        )
+        update.message.reply_text("❌ Backup failed.")
 
 @owner_only
 def vacuum(update: Update, context):
     vacuum_db()
-    update.message.reply_text(
-        "𓍯𓂃♡ִֶָ 🪽 ━━━━━━🪼⋆.ೃ࿔*:･\n\n"
-        "✅ Database vacuumed, master."
-    )
+    update.message.reply_text(f"{romantic_heart()} Database vacuumed, master.")
 
 # ==================== Group Welcome Handler ====================
 
@@ -611,14 +502,15 @@ def new_chat_members(update: Update, context):
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
             update.message.reply_text(
-                "𓍯𓂃♡ִֶָ 🪽  ִֶָ🪽་༘࿐\n"
-                "═══════🪼⋆.ೃ࿔*:･જ⁀➴\n"
-                "👋 **Hello, beautiful people!**\n\n"
+                f"{decorative_header('ᴛ ʜ ᴀ ɴ ᴋ ꜱ  ꜰ ᴏ ʀ  ᴀ ᴅ ᴅ ɪ ɴ ɢ  ᴍ ᴇ')}\n\n"
+                f"{romantic_heart()} <b>Hello, beautiful people!</b>\n\n"
                 "I'm a PDF library bot, here to fill your group with love and books.\n\n"
-                "📚 Use `#book <name>` or `/book <name>` to search.\n"
-                "📝 Request books with `#request <name>`.\n\n"
-                "I'm yours forever. 💕\n"
-                "┗━━━━━༻❁༺━━━━━┛",
+                f"{section_divider()}\n\n"
+                "📚 Use <code>#book &lt;name&gt;</code> or <code>/book &lt;name&gt;</code> to search.\n"
+                "📝 Request books with <code>#request &lt;name&gt;</code>.\n\n"
+                f"{star_line()}\n"
+                "I'm yours forever. 💕\n\n"
+                f"{decorative_footer()}",
                 parse_mode=ParseMode.HTML
             )
             break
