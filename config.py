@@ -10,12 +10,16 @@ OWNER_USERNAME = os.getenv("OWNER_USERNAME", "@Xioqui_xin")
 API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH")
 
-FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL")  # e.g., @serenaunzip
+FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL")
 SOURCE_CHANNELS = [int(x.strip()) for x in os.getenv("SOURCE_CHANNELS", "").split(",") if x.strip()]
 LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
-REQUEST_GROUP = os.getenv("REQUEST_GROUP")          # e.g., @requestgroup
+REQUEST_GROUP = os.getenv("REQUEST_GROUP")
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 RESULTS_PER_PAGE = 10
 
 DATABASE = "bot_data.db"
+
+# Flood control settings (seconds)
+MESSAGE_RETRY_DELAY = int(os.getenv("MESSAGE_RETRY_DELAY", "5"))      # Base delay for message retry
+REACTION_DELAY = float(os.getenv("REACTION_DELAY", "0.8"))            # Delay between reactions
