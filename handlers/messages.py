@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import MessageHandler, Filters, CallbackContext
-from database import search_files, update_user, is_bot_locked
+from database import search_files, update_user, is_bot_locked, is_user_banned
 from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
 from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
@@ -41,6 +41,15 @@ def reaction_worker():
 reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
+def delete_message(context: CallbackContext):
+    """Delete a message after 24 hours."""
+    job = context.job
+    chat_id, message_id = job.context
+    try:
+        context.bot.delete_message(chat_id, message_id)
+    except Exception as e:
+        logger.error(f"Auto-delete failed: {e}")
+
 def group_message_handler(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
@@ -59,6 +68,10 @@ def group_message_handler(update: Update, context: CallbackContext):
     if not user:
         return
 
+    # Check if user is banned
+    if is_user_banned(user.id):
+        return
+
     update_user(user.id, user.first_name, user.username)
 
     if is_bot_locked() and user.id != OWNER_ID:
@@ -71,6 +84,14 @@ def group_message_handler(update: Update, context: CallbackContext):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
+
+    # Schedule auto-delete after 24 hours (86400 seconds)
+    if update.message:
+        context.job_queue.run_once(
+            delete_message,
+            86400,
+            context=(chat_id, message_id)
+        )
 
     if update.message.text:
         text = update.message.text.strip()
