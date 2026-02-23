@@ -2,12 +2,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMo
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked, is_user_banned
 from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, safe_reply_text
-from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID, REACTION_DELAY
+from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
 import logging
 import queue
 import threading
 import time
 import random
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +19,21 @@ def reaction_worker():
     while reaction_running:
         try:
             chat_id, message_id, msg_type = reaction_queue.get(timeout=1)
+            # Use only valid Telegram reaction emojis
             emoji_pools = {
-                "text": ["❤️", "🔥", "👍", "👏", "🎉", "🤔", "😮", "🤝", "💯", "⚡"],
+                "text": ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🎉", "🤩", "🙏", "👌", "🕊️", "🤝", "😍", "😘", "💯", "💪", "🍓"],
                 "photo": ["❤️", "🔥", "👍", "👏", "😍", "🤩", "✨", "🌟", "🎯", "🏆"],
                 "video": ["🔥", "🎬", "👍", "👏", "😎", "💯", "⚡", "🚀", "🎉", "🏅"],
                 "sticker": ["😄", "😂", "🤣", "😍", "😎", "🤩", "🎭", "✨", "👍", "👌"],
                 "document": ["📄", "📚", "📖", "🔖", "📌", "✅", "👍", "❤️", "🔥", "🎉"]
             }
             emojis = emoji_pools.get(msg_type, emoji_pools["text"])
-            num_reactions = random.randint(1, 3)
+            num_reactions = random.randint(1, 2)  # Reduce to avoid flood
             for i in range(num_reactions):
                 emoji = random.choice(emojis)
-                is_big = (i == 0) or random.choice([True, False])
+                is_big = (i == 0) and random.choice([True, False])  # Only first maybe big
                 send_reaction(chat_id, message_id, emoji, is_big)
-                time.sleep(REACTION_DELAY)  # Configurable delay
+                time.sleep(random.uniform(0.5, 1.0))  # Slightly longer delay
             reaction_queue.task_done()
         except queue.Empty:
             time.sleep(0.1)
@@ -48,6 +50,14 @@ def delete_message(context: CallbackContext):
         context.bot.delete_message(chat_id, message_id)
     except Exception as e:
         logger.error(f"Auto-delete failed: {e}")
+
+def is_admin(update: Update, context, user_id):
+    """Check if user is admin in the group."""
+    try:
+        member = context.bot.get_chat_member(update.effective_chat.id, user_id)
+        return member.status in ['administrator', 'creator']
+    except:
+        return False
 
 def group_message_handler(update: Update, context: CallbackContext):
     # Show typing animation
@@ -70,10 +80,26 @@ def group_message_handler(update: Update, context: CallbackContext):
     if not user:
         return
 
+    # Check if user is banned
     if is_user_banned(user.id):
         return
 
     update_user(user.id, user.first_name, user.username)
+
+    # Link spam prevention
+    if update.message.text and not is_admin(update, context, user.id) and user.id != OWNER_ID:
+        # Check for links
+        text = update.message.text
+        link_pattern = r'(https?://|t\.me/|www\.)[^\s]+'
+        if re.search(link_pattern, text, re.IGNORECASE):
+            try:
+                update.message.delete()
+                logger.info(f"Deleted spam message from {user.id} containing link")
+                # Optionally warn user
+                # warn_user(user.id, context.bot.id, "Sending links")
+            except Exception as e:
+                logger.error(f"Failed to delete spam message: {e}")
+            return
 
     if is_bot_locked() and user.id != OWNER_ID:
         return
@@ -135,7 +161,11 @@ def group_message_handler(update: Update, context: CallbackContext):
 
         context.user_data['search_results'] = results
         context.user_data['current_page'] = 0
-        send_results_page(update, context, 0)
+        try:
+            send_results_page(update, context, 0)
+        except Exception as e:
+            logger.error(f"Error in send_results_page: {e}", exc_info=True)
+            update.message.reply_text("❌ An error occurred while displaying results.")
 
 def send_results_page(update: Update, context: CallbackContext, page):
     from utils import build_info_keyboard, format_size
@@ -164,7 +194,8 @@ def send_results_page(update: Update, context: CallbackContext, page):
 
     info_buttons = build_info_keyboard()
     if info_buttons:
-        keyboard.append(info_buttons)
+        # info_buttons is a list of rows, so extend keyboard with those rows
+        keyboard.extend(info_buttons)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
