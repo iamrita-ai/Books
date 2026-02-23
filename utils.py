@@ -4,8 +4,9 @@ import requests
 import time
 from datetime import datetime
 import psutil
-from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN, OWNER_ID, OWNER_USERNAME, REQUEST_GROUP
+from config import FORCE_SUB_CHANNEL, LOG_CHANNEL, BOT_TOKEN, OWNER_ID, OWNER_USERNAME, REQUEST_GROUP, MESSAGE_RETRY_DELAY
 import logging
+from telegram.error import RetryAfter, TimedOut
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ def random_reaction() -> str:
     ]
     return random.choice(emojis)
 
-def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False):
+def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = False, max_retries=3):
+    """Send reaction with retry on flood."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMessageReaction"
     data = {
         "chat_id": chat_id,
@@ -38,12 +40,64 @@ def send_reaction(chat_id: int, message_id: int, emoji: str, is_big: bool = Fals
     }
     if is_big:
         data["is_big"] = True
-    try:
-        response = requests.post(url, json=data, timeout=5)
-        return response.json().get("ok", False)
-    except Exception as e:
-        logger.error(f"Reaction error: {e}")
-        return False
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=data, timeout=5)
+            result = response.json()
+            if result.get("ok"):
+                return True
+            elif "retry after" in result.get("description", "").lower():
+                wait = int(result.get("parameters", {}).get("retry_after", MESSAGE_RETRY_DELAY))
+                logger.warning(f"Reaction flood, waiting {wait}s (attempt {attempt+1}/{max_retries})")
+                time.sleep(wait)
+            else:
+                logger.error(f"Reaction failed: {result}")
+                return False
+        except Exception as e:
+            logger.error(f"Reaction error: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(MESSAGE_RETRY_DELAY)
+            else:
+                return False
+    return False
+
+def safe_send_message(bot, chat_id, text, parse_mode=None, reply_markup=None, reply_to_message_id=None, max_retries=3):
+    """Send message with automatic retry on flood."""
+    for attempt in range(max_retries):
+        try:
+            return bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+                reply_to_message_id=reply_to_message_id
+            )
+        except RetryAfter as e:
+            wait = e.retry_after
+            logger.warning(f"Flood control: waiting {wait}s (attempt {attempt+1}/{max_retries})")
+            time.sleep(wait)
+        except TimedOut:
+            logger.warning(f"Timeout, retrying in {MESSAGE_RETRY_DELAY}s")
+            time.sleep(MESSAGE_RETRY_DELAY)
+        except Exception as e:
+            logger.error(f"Send message error: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(MESSAGE_RETRY_DELAY)
+            else:
+                raise
+    raise Exception("Max retries exceeded")
+
+def safe_reply_text(message, text, parse_mode=None, reply_markup=None, max_retries=3):
+    """Helper to reply with retry."""
+    return safe_send_message(
+        message.bot,
+        message.chat_id,
+        text,
+        parse_mode=parse_mode,
+        reply_markup=reply_markup,
+        reply_to_message_id=message.message_id,
+        max_retries=max_retries
+    )
 
 def check_subscription(user_id, bot):
     if not FORCE_SUB_CHANNEL:
@@ -85,7 +139,6 @@ def get_disk_usage():
         return None
 
 def build_start_keyboard():
-    """Build the inline keyboard for /start message (returns list of rows)."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -106,10 +159,9 @@ def build_start_keyboard():
             buttons.append(InlineKeyboardButton("📝 Request Group", url=REQUEST_GROUP))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return [buttons]  # Return list of rows (one row)
+    return [buttons]
 
 def build_info_keyboard():
-    """Build the info row for search results (returns a single row as a list of buttons)."""
     from telegram import InlineKeyboardButton
     buttons = []
     
@@ -124,4 +176,4 @@ def build_info_keyboard():
         buttons.append(InlineKeyboardButton("📢 Channel", url=f"https://t.me/{channel_display[1:]}"))
     
     buttons.append(InlineKeyboardButton("ℹ️ Info", callback_data="info"))
-    return buttons  # Return a single row (list of buttons)
+    return [buttons]
