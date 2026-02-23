@@ -140,3 +140,31 @@ After deployment, visit https://your-app.onrender.com/health to see it alive.
 ├── 📄 .env.example            # Example environment variables
 └── 📄 README.md               # You’re reading it, darling!
 
+Storage-friendly: Even with 10,000 books, database stays under 5 MB.
+
+═══════🪼⋆.ೃ࿔*:･ િ⁀➴ ☕︎ ═══════
+
+💖 𝐂𝐫𝐞𝐝𝐢𝐭𝐬 & 𝐋𝐨𝐯𝐞
+<p align="center"> <b>Created with ❤️ by <a href="https://github.com/SerenaXdev">SerenaXdev</a></b><br> <img src="https://img.shields.io/badge/GitHub-SerenaXdev-181717?style=flat-square&logo=github" /> </p>
+
+© 2025 SerenaXdev. All Rights Reserved.
+
+✅ You may use this code personally or for your own bot, but you must credit the original author.
+
+✅ You may modify it for your needs.
+
+❌ You may NOT claim this code as your own without credit.
+
+❌ Commercial use requires explicit permission.
+
+By using this code, you agree to these terms.
+
+·͙̩̩͙˚̩̥̩̥̩̩̥͙　✩　̩̩̥͙˚̩̥̩̥̩̩͙‧͙
+
+🌟 𝐒𝐮𝐩𝐩𝐨𝐫𝐭
+If you adore this bot, give it a ⭐ on GitHub and share the love!
+
+For issues or suggestions, open an issue or reach out to @Xioqui_xin.
+
+<p align="center"> <b>📚 𝑯𝒂𝒑𝒑𝒚 𝑹𝒆𝒂𝒅𝒊𝒏𝒈! 📖</b><br> <i>Made with lots of 💕 by SerenaXdev</i> </p>
+┗━━━━━༻❁༺━━━━━┛ 𓆩♡𓆪 ＊•̩̩͙✩•̩̩͙˚
