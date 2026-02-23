@@ -1,10 +1,15 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CommandHandler, Filters, CallbackContext
 from config import OWNER_ID, BOT_NAME, FORCE_SUB_CHANNEL, REQUEST_GROUP, RESULTS_PER_PAGE
-from database import (get_total_files, get_total_users, get_db_size, is_bot_locked,
-                      set_bot_locked, get_all_users, update_user, search_files)
-from utils import (get_uptime, get_memory_usage, get_disk_usage, check_subscription,
-                   log_to_channel, build_start_keyboard, build_info_keyboard, format_size)
+from database import (
+    get_total_files, get_total_users, get_db_size, is_bot_locked,
+    set_bot_locked, get_all_users, update_user, search_files,
+    get_top_books, get_random_book, add_feedback, warn_user, is_user_banned
+)
+from utils import (
+    get_uptime, get_memory_usage, get_disk_usage, check_subscription,
+    log_to_channel, build_start_keyboard, build_info_keyboard, format_size
+)
 import datetime
 import logging
 import time
@@ -48,6 +53,8 @@ def start(update: Update, context):
             "• In the group, you can:\n"
             "   - Use <code>#book mindset</code> to search\n"
             "   - Use <code>/book mindset</code> command\n"
+            "   - Use <code>/random</code> for a random book\n"
+            "   - Use <code>/top</code> for most downloaded books\n"
             "   - Use <code>#request book name</code> to request a book\n"
             "• Click on a result button to instantly get the PDF.\n\n"
             "📖 <b>Book categories:</b> Self-improvement, Mindset, Hindi literature, English classics, and more.\n\n"
@@ -62,11 +69,12 @@ def start(update: Update, context):
         text = (
             f"👋 <b>Hello {user.first_name}!</b>\n\n"
             f"I'm <b>{BOT_NAME}</b>, here to help you find PDF books.\n\n"
-            "🔍 <b>To search:</b>\n"
-            "• Use <code>#book mindset</code>\n"
-            "• Use <code>/book mindset</code> command\n\n"
-            "📝 <b>To request a book:</b>\n"
-            "Use <code>#request book name</code>\n\n"
+            "🔍 <b>Commands:</b>\n"
+            "• <code>/book mindset</code> – Search a book\n"
+            "• <code>/random</code> – Random book suggestion\n"
+            "• <code>/top</code> – Top downloaded books\n"
+            "• <code>/feedback &lt;book_id&gt; &lt;rating&gt; [comment]</code> – Rate a book\n"
+            "• <code>#request book name</code> – Request a book\n\n"
             "❌ <b>No copyrighted content</b> – only public domain books."
         )
         reply_markup = None
@@ -81,6 +89,9 @@ def help_command(update: Update, context):
         "• <code>/help</code> – This help\n"
         "• <code>/stats</code> – Bot statistics\n"
         "• <code>/book &lt;name&gt;</code> – Search for a book\n"
+        "• <code>/random</code> – Random book suggestion\n"
+        "• <code>/top</code> – Top downloaded books\n"
+        "• <code>/feedback &lt;id&gt; &lt;rating&gt; [comment]</code> – Rate a book (1-5)\n"
         "• <code>#book &lt;name&gt;</code> – Alternative search tag\n"
         "• <code>#request &lt;name&gt;</code> – Request a book\n\n"
         "<b>Private chat commands:</b>\n"
@@ -90,9 +101,10 @@ def help_command(update: Update, context):
         "• <code>/broadcast &lt;msg&gt;</code> – Send message to all users\n"
         "• <code>/lock</code> – Lock the bot\n"
         "• <code>/unlock</code> – Unlock the bot\n"
-        "• <code>/import</code> – Import database (placeholder)\n"
+        "• <code>/import</code> – Import database (reply to .db file)\n"
         "• <code>/export</code> – Export database\n"
-        "• <code>/delete_db</code> – Delete all data (requires confirmation)\n\n"
+        "• <code>/delete_db</code> – Delete all data (requires confirmation)\n"
+        "• <code>/warn &lt;user_id&gt; &lt;reason&gt;</code> – Warn a user\n\n"
         "📖 <b>Available books:</b> Self-improvement, Hindi literature, English classics, etc.\n"
         "❌ <b>No pirated content.</b>"
     )
@@ -135,14 +147,9 @@ def book_search(update: Update, context):
         return
     context.user_data['search_results'] = results
     context.user_data['current_page'] = 0
-    try:
-        send_results_page(update, context, 0)
-    except Exception as e:
-        logger.error(f"Error in book_search send_results_page: {e}", exc_info=True)
-        update.message.reply_text("❌ An error occurred while displaying results.")
+    send_results_page(update, context, 0)
 
 def send_results_page(update: Update, context: CallbackContext, page):
-    logger.info(f"send_results_page called from commands with page {page}")
     from utils import build_info_keyboard, format_size
     results = context.user_data.get('search_results', [])
     if not results:
@@ -177,6 +184,50 @@ def send_results_page(update: Update, context: CallbackContext, page):
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
+
+def random_book(update: Update, context):
+    """Get a random book suggestion."""
+    book = get_random_book()
+    if not book:
+        update.message.reply_text("❌ No books in database.")
+        return
+    keyboard = [[InlineKeyboardButton(f"📘 {book['original_filename']} ({format_size(book['file_size'])})", callback_data=f"get_{book['id']}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("📖 <b>Random Book Suggestion:</b>", reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+
+def top_books(update: Update, context):
+    """Show most downloaded books."""
+    books = get_top_books(10)
+    if not books:
+        update.message.reply_text("❌ No download data yet.")
+        return
+    text = "📊 <b>Top Downloaded Books</b>\n\n"
+    keyboard = []
+    for i, book in enumerate(books, 1):
+        text += f"{i}. {book['original_filename']} – {book['download_count']} downloads\n"
+        # Optionally add buttons
+        btn_text = f"📘 {book['original_filename'][:30]}..."
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"get_{book['id']}")])
+    reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+    update.message.reply_text(text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+
+def feedback(update: Update, context):
+    """Give feedback on a book. Usage: /feedback <book_id> <rating> [comment]"""
+    if len(context.args) < 2:
+        update.message.reply_text("Usage: /feedback <book_id> <rating 1-5> [comment]")
+        return
+    try:
+        book_id = int(context.args[0])
+        rating = int(context.args[1])
+        if rating < 1 or rating > 5:
+            raise ValueError
+    except:
+        update.message.reply_text("Invalid book ID or rating (must be 1-5).")
+        return
+    comment = ' '.join(context.args[2:]) if len(context.args) > 2 else None
+    user_id = update.effective_user.id
+    add_feedback(user_id, book_id, rating, comment)
+    update.message.reply_text("✅ Thank you for your feedback!")
 
 @owner_only
 def users(update: Update, context):
@@ -215,7 +266,31 @@ def unlock(update: Update, context):
 
 @owner_only
 def import_db(update: Update, context):
-    update.message.reply_text("Import not implemented in this version.")
+    """Import database from a file (reply to a document)."""
+    if not update.message.reply_to_message or not update.message.reply_to_message.document:
+        update.message.reply_text("Please reply to a database file with /import")
+        return
+
+    file = update.message.reply_to_message.document
+    if not file.file_name.endswith('.db'):
+        update.message.reply_text("❌ Please send a valid .db file")
+        return
+
+    # Download the file
+    file_id = file.file_id
+    new_file = context.bot.get_file(file_id)
+    new_file.download('imported.db')
+
+    # Replace current database
+    import os
+    import shutil
+    try:
+        shutil.copy2('imported.db', 'bot_data.db')
+        os.remove('imported.db')
+        update.message.reply_text("✅ Database imported successfully!")
+        log_to_channel(context.bot, "Database imported by owner.")
+    except Exception as e:
+        update.message.reply_text(f"❌ Import failed: {e}")
 
 @owner_only
 def export_db(update: Update, context):
@@ -238,6 +313,13 @@ def confirm_delete(update: Update, context):
             conn.execute("DROP TABLE IF EXISTS files")
             conn.execute("DROP TABLE IF EXISTS users")
             conn.execute("DROP TABLE IF EXISTS settings")
+            conn.execute("DROP TABLE IF EXISTS categories")
+            conn.execute("DROP TABLE IF EXISTS book_categories")
+            conn.execute("DROP TABLE IF EXISTS feedback")
+            conn.execute("DROP TABLE IF EXISTS downloads")
+            conn.execute("DROP TABLE IF EXISTS user_warnings")
+            conn.execute("DROP TABLE IF EXISTS user_badges")
+            conn.execute("DROP TABLE IF EXISTS reading_challenges")
         init_db()
         update.message.reply_text("✅ Database cleared.")
         log_to_channel(context.bot, "Database deleted by owner.")
@@ -245,11 +327,32 @@ def confirm_delete(update: Update, context):
     else:
         update.message.reply_text("No pending delete request.")
 
+@owner_only
+def warn_user(update: Update, context):
+    """Warn a user. Usage: /warn <user_id> <reason>"""
+    if len(context.args) < 2:
+        update.message.reply_text("Usage: /warn <user_id> <reason>")
+        return
+    try:
+        user_id = int(context.args[0])
+        reason = ' '.join(context.args[1:])
+    except:
+        update.message.reply_text("Invalid user ID.")
+        return
+
+    count = warn_user(user_id, update.effective_user.id, reason)
+    update.message.reply_text(f"⚠️ User {user_id} warned. Total warnings: {count}")
+
+    if count >= 3:
+        from database import ban_user
+        ban_user(user_id)
+        update.message.reply_text(f"User {user_id} has been banned due to multiple warnings.")
+        log_to_channel(context.bot, f"User {user_id} banned for 3 warnings.")
+
 def new_request(update: Update, context):
     if update.effective_chat.type != "private":
         update.message.reply_text("Please use this command in private chat with me.")
         return
-
     if not context.args:
         update.message.reply_text(
             "📝 Please provide a book name.\n"
@@ -257,7 +360,6 @@ def new_request(update: Update, context):
             parse_mode=ParseMode.HTML
         )
         return
-
     book_name = ' '.join(context.args)
     user = update.effective_user
     if OWNER_ID:
@@ -294,4 +396,8 @@ def get_handlers():
         CommandHandler("confirm_delete", confirm_delete, Filters.chat_type.groups),
         CommandHandler("new_request", new_request, Filters.chat_type.private),
         CommandHandler("book", book_search, Filters.chat_type.groups),
+        CommandHandler("random", random_book, Filters.chat_type.groups),
+        CommandHandler("top", top_books, Filters.chat_type.groups),
+        CommandHandler("feedback", feedback, Filters.chat_type.groups),
+        CommandHandler("warn", warn_user, Filters.chat_type.groups),
     ]
