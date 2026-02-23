@@ -105,7 +105,7 @@ Build Command: leave blank
 Start Command: leave blank
 
 4. 𝐀𝐝𝐝 𝐄𝐧𝐯𝐢𝐫𝐨𝐧𝐦𝐞𝐧𝐭 𝐕𝐚𝐫𝐢𝐚𝐛𝐥𝐞𝐬
-Variable	Description	Example
+```Variable	Description	Example
 BOT_TOKEN	From @BotFather	123456:ABC-DEF1234
 OWNER_ID	Your Telegram numeric ID	123456789
 OWNER_USERNAME	Your Telegram username	@Xioqui_xin
@@ -114,6 +114,7 @@ SOURCE_CHANNELS	Comma-separated numeric group IDs	-1001234567890,-100987654321
 LOG_CHANNEL	(Optional) Channel ID for logs	-1001234567890
 REQUEST_GROUP	(Optional) Request group link/username	@requestgroup
 BOT_NAME	(Optional) Your bot’s name	📚 PDF Library Bot
+```
 5.𝐃𝐞𝐩𝐥𝐨𝐲
 Click Create Web Service. Render will build and launch your bot.
 
