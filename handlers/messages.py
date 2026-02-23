@@ -1,8 +1,8 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, ChatAction
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from database import search_files, update_user, is_bot_locked, is_user_banned
-from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction
-from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID
+from utils import format_size, check_subscription, log_to_channel, build_info_keyboard, send_reaction, safe_reply_text
+from config import RESULTS_PER_PAGE, FORCE_SUB_CHANNEL, OWNER_ID, REACTION_DELAY
 import logging
 import queue
 import threading
@@ -31,7 +31,7 @@ def reaction_worker():
                 emoji = random.choice(emojis)
                 is_big = (i == 0) or random.choice([True, False])
                 send_reaction(chat_id, message_id, emoji, is_big)
-                time.sleep(random.uniform(0.3, 0.7))
+                time.sleep(REACTION_DELAY)  # Configurable delay
             reaction_queue.task_done()
         except queue.Empty:
             time.sleep(0.1)
@@ -42,7 +42,6 @@ reaction_thread = threading.Thread(target=reaction_worker, daemon=True)
 reaction_thread.start()
 
 def delete_message(context: CallbackContext):
-    """Delete a message after 24 hours."""
     job = context.job
     chat_id, message_id = job.context
     try:
@@ -51,6 +50,9 @@ def delete_message(context: CallbackContext):
         logger.error(f"Auto-delete failed: {e}")
 
 def group_message_handler(update: Update, context: CallbackContext):
+    # Show typing animation
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
     msg_type = "text"
@@ -68,7 +70,6 @@ def group_message_handler(update: Update, context: CallbackContext):
     if not user:
         return
 
-    # Check if user is banned
     if is_user_banned(user.id):
         return
 
@@ -85,13 +86,8 @@ def group_message_handler(update: Update, context: CallbackContext):
         )
         return
 
-    # Schedule auto-delete after 24 hours (86400 seconds)
-    if update.message:
-        context.job_queue.run_once(
-            delete_message,
-            86400,
-            context=(chat_id, message_id)
-        )
+    # Schedule auto-delete after 24 hours
+    context.job_queue.run_once(delete_message, 86400, context=(chat_id, message_id))
 
     if update.message.text:
         text = update.message.text.strip()
@@ -102,9 +98,7 @@ def group_message_handler(update: Update, context: CallbackContext):
         if text.lower().startswith('#request'):
             book_name = text[8:].strip()
             if book_name:
-                update.message.reply_text(
-                    "📝 Your request has been noted. We'll try to add it if it's non-copyright."
-                )
+                safe_reply_text(update.message, "📝 Your request has been noted. We'll try to add it if it's non-copyright.")
                 log_to_channel(context.bot, f"📌 Group request from {user.first_name}: {book_name}")
                 if OWNER_ID:
                     try:
@@ -135,7 +129,7 @@ def group_message_handler(update: Update, context: CallbackContext):
 
         results = search_files(query)
         if not results:
-            update.message.reply_text("❌ No books found matching your query.")
+            safe_reply_text(update.message, "❌ No books found matching your query.")
             log_to_channel(context.bot, f"Search '{query}' by {user.first_name} – no results")
             return
 
