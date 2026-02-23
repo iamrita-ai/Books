@@ -114,4 +114,29 @@ SOURCE_CHANNELS	Comma-separated numeric group IDs	-1001234567890,-100987654321
 LOG_CHANNEL	(Optional) Channel ID for logs	-1001234567890
 REQUEST_GROUP	(Optional) Request group link/username	@requestgroup
 BOT_NAME	(Optional) Your bot’s name	📚 PDF Library Bot
-5. 𝐃𝐞𝐩𝐥𝐨𝐲
+5.𝐃𝐞𝐩𝐥𝐨𝐲
+Click Create Web Service. Render will build and launch your bot.
+
+After deployment, visit https://your-app.onrender.com/health to see it alive.
+
+═══════🪼⋆.ೃ࿔*:･ િ⁀➴ ☕︎ ═══════
+
+📁 𝐏𝐫𝐨𝐣𝐞𝐜𝐭 𝐒𝐭𝐫𝐮𝐜𝐭𝐮𝐫𝐞
+
+📦 pdf-library-bot
+├── 📄 app.py                  # Main Flask app with bot thread
+├── 📄 config.py               # Environment variables
+├── 📄 database.py             # SQLite operations (with love)
+├── 📄 utils.py                # Helper functions + decorative styles
+├── 📂 handlers/
+│   ├── 📄 __init__.py
+│   ├── 📄 source_group.py     # PDF saver from source groups
+│   ├── 📄 commands.py         # All commands (with romantic flair)
+│   ├── 📄 messages.py         # Message handler (search, requests)
+│   ├── 📄 callbacks.py        # Inline button callbacks
+│   └── 📄 inline.py           # Inline mode (optional)
+├── 📄 requirements.txt        # Python dependencies
+├── 📄 Dockerfile              # Docker configuration
+├── 📄 .env.example            # Example environment variables
+└── 📄 README.md               # You’re reading it, darling!
+
